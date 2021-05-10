@@ -1,5 +1,9 @@
 # ddsketch extension
 
+> :warning: **Warning**: This extension is still an early WIP version, not
+> suitable for production use. The on-disk format, function signatures etc.
+> may change and so on.
+
 This PostgreSQL extension implements ddsketch, a data structure for on-line
 accumulation of quantiles, as described in a paper
 
