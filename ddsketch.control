@@ -1,0 +1,3 @@
+comment = 'Provides ddsketch aggregate function.'
+default_version = '1.0.0'
+relocatable = true
