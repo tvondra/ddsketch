@@ -291,9 +291,25 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 c)
 
 	index = ceil(log(v) / log(gamma));
 
-	/* FIXME maybe resize the sketch */
+	/* if needed, resize the sketch (use the usual doubling approach) */
 	if (index >= state->nbuckets)
-		elog(ERROR, "index too high %d > %d", index, state->nbuckets);
+	{
+		int		nbuckets = state->nbuckets;
+
+		while (index >= nbuckets)
+			nbuckets *= 2;
+
+		if (nbuckets > state->maxbuckets)
+			elog(ERROR, "bucket overflow (%d > %d)", nbuckets, state->maxbuckets);
+
+		state->buckets = repalloc(state->buckets,
+								  nbuckets * sizeof(int64));
+
+		memset(&state->buckets[state->nbuckets], 0,
+			   sizeof(int64) * (nbuckets - state->nbuckets));
+
+		state->nbuckets = nbuckets;
+	}
 
 	/* for a single point, the value is both sum and mean */
 	state->buckets[index] += c;
