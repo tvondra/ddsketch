@@ -26,7 +26,7 @@ typedef struct ddsketch_t {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
 	int32		flags;			/* reserved for future use (versioning, ...) */
 	int64		count;			/* number of items added to the ddsketch */
-	float4		alpha;			/* alpha used to size the buckets */
+	float8		alpha;			/* alpha used to size the buckets */
 	int32		maxbuckets;		/* maximum number of buckets sketch */
 	int32		nbuckets;		/* current number of buckets */
 	int64		buckets[FLEXIBLE_ARRAY_MEMBER];
@@ -43,7 +43,7 @@ typedef struct ddsketch_t {
 typedef struct ddsketch_aggstate_t {
 	/* basic sketch fields */
 	int64		count;			/* number of items added to the ddsketch */
-	float4		alpha;			/* alpha used to size the buckets */
+	float8		alpha;			/* alpha used to size the buckets */
 	int32		maxbuckets;		/* maximum number of buckets sketch */
 	int32		nbuckets;		/* current number of buckets */
 
