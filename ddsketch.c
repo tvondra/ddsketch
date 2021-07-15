@@ -20,14 +20,6 @@
 PG_MODULE_MAGIC;
 
 /*
- * A sketch bucket, used both for in-memory and on-disk storage.
- */
-typedef struct bucket_t {
-	int32	index;
-	int64	count;
-} bucket_t;
-
-/*
  * On-disk representation of the ddsketch.
  */
 typedef struct ddsketch_t {
@@ -37,7 +29,7 @@ typedef struct ddsketch_t {
 	float4		alpha;			/* alpha used to size the buckets */
 	int32		maxbuckets;		/* maximum number of buckets sketch */
 	int32		nbuckets;		/* current number of buckets */
-	bucket_t	buckets[FLEXIBLE_ARRAY_MEMBER];
+	int64		buckets[FLEXIBLE_ARRAY_MEMBER];
 } ddsketch_t;
 
 /*
@@ -62,7 +54,7 @@ typedef struct ddsketch_aggstate_t {
 	/* variable-length fields at the end */
 	double	   *percentiles;	/* array of percentiles (if any) */
 	double	   *values;			/* array of values (if any) */
-	bucket_t   *buckets;		/* sketch buckets */
+	int64	   *buckets;		/* sketch buckets */
 } ddsketch_aggstate_t;
 
 #define PG_GETARG_DDSKETCH(x)	(ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(x))
@@ -172,8 +164,8 @@ AssertCheckDDSketch(ddsketch_t *sketch)
 	count = 0;
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
-		Assert(sketch->buckets[i].count >= 0);
-		count += sketch->buckets[i].count;
+		Assert(sketch->buckets[i] >= 0);
+		count += sketch->buckets[i];
 	}
 
 	Assert(count == sketch->count);
@@ -206,8 +198,8 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 	count = 0;
 	for (i = 0; i < state->nbuckets; i++)
 	{
-		Assert(state->buckets[i].count >= 0);
-		count += state->buckets[i].count;
+		Assert(state->buckets[i] >= 0);
+		count += state->buckets[i];
 	}
 
 	Assert(count == state->count);
@@ -232,13 +224,14 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		int64	count = 0;
 		double	goal = (state->percentiles[i] * state->count);
 
+		/* FIXME This should probably look at the "next" non-zero bucket. */
 		for (j = 0; j < state->nbuckets; j++)
 		{
-			if (state->buckets[j].count == 0)
+			if (state->buckets[j] == 0)
 				continue;
 
-			count += state->buckets[j].count;
-			index = state->buckets[j].index;
+			count += state->buckets[j];
+			index = j;
 
 			if (count > goal)
 				break;
@@ -272,9 +265,9 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 		/* FIXME offset the value by 1.0 to always produce positive value from log() */
 		index = ceil(log(1.0 + value) / log(gamma));
 
-		count = state->buckets[index].count / 2;
+		count = state->buckets[index] / 2;
 		for (j = 0; j < index; j++)
-			count += state->buckets[j].count;
+			count += state->buckets[j];
 
 		result[i] = count / (double) state->count;
 	}
@@ -299,8 +292,7 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 c)
 		elog(ERROR, "index too high %d > %d", index, state->nbuckets);
 
 	/* for a single point, the value is both sum and mean */
-	state->buckets[index].count += c;
-	state->buckets[index].index = index;
+	state->buckets[index] += c;
 	state->count += c;
 }
 
@@ -312,7 +304,7 @@ ddsketch_allocate(double alpha, int maxbuckets, int nbuckets)
 	ddsketch_t *sketch;
 	char	   *ptr;
 
-	len = offsetof(ddsketch_t, buckets) + nbuckets * sizeof(bucket_t);
+	len = offsetof(ddsketch_t, buckets) + nbuckets * sizeof(int64);
 
 	/* we pre-allocate the array for all buckets */
 	ptr = palloc0(len);
@@ -350,8 +342,7 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuc
 	 */
 	len = MAXALIGN(sizeof(ddsketch_aggstate_t)) +
 		  MAXALIGN(sizeof(double) * npercentiles) +
-		  MAXALIGN(sizeof(double) * nvalues) +
-		  (nbuckets * sizeof(bucket_t));
+		  MAXALIGN(sizeof(double) * nvalues);
 
 	ptr = palloc0(len);
 
@@ -376,10 +367,12 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuc
 		ptr += MAXALIGN(sizeof(double) * nvalues);
 	}
 
-	state->buckets = (bucket_t *) ptr;
-	ptr += (nbuckets * sizeof(bucket_t));
-
 	Assert(ptr == (char *) state + len);
+
+	/* we may need to repalloc this later */
+	state->buckets = palloc0(nbuckets * sizeof(int64));
+
+	AssertCheckDDSketchAggState(state);
 
 	return state;
 }
@@ -387,16 +380,10 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuc
 static ddsketch_t *
 ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 {
-	int			i;
 	ddsketch_t  *sketch;
 	int			nbuckets;
 
-	nbuckets = 0;
-	for (i = 0; i < state->nbuckets; i++)
-	{
-		if (state->buckets[i].count > 0)
-			nbuckets++;
-	}
+	nbuckets = state->nbuckets;
 
 	sketch = ddsketch_allocate(state->alpha, state->maxbuckets, nbuckets);
 
@@ -405,14 +392,7 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 	sketch->maxbuckets = state->maxbuckets;
 	sketch->alpha = state->alpha;
 
-	nbuckets = 0;
-	for (i = 0; i < state->nbuckets; i++)
-	{
-		if (state->buckets[i].count == 0)
-			continue;
-
-		sketch->buckets[nbuckets++] = state->buckets[i];
-	}
+	memcpy(sketch->buckets, state->buckets, state->nbuckets * sizeof(int64));
 
 	Assert(sketch->nbuckets == nbuckets);
 
@@ -806,12 +786,9 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 
 	/* copy data from the sketch into the aggstate */
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		int	index = sketch->buckets[i].index;
-		state->buckets[index].index = index;
-		state->buckets[index].count += sketch->buckets[i].count;
-		state->count += sketch->buckets[i].count;
-	}
+		state->buckets[i] += sketch->buckets[i];
+
+	state->count += sketch->count;
 
 	PG_RETURN_POINTER(state);
 }
@@ -880,12 +857,9 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 
 	/* copy data from sketch to aggstate */
 	for (i = 0; i < state->nbuckets; i++)
-	{
-		int	index = sketch->buckets[i].index;
-		state->buckets[index].index = index;
-		state->buckets[index].count += sketch->buckets[i].count;
-		state->count += sketch->buckets[i].count;
-	}
+		state->buckets[i] += sketch->buckets[i];
+
+	state->count += sketch->count;
 
 	PG_RETURN_POINTER(state);
 }
@@ -1216,12 +1190,9 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 
 	/* copy data from sketch to aggstate */
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		int index = sketch->buckets[i].index;
-		state->buckets[index].index = index;
-		state->buckets[index].count += sketch->buckets[i].count;
-		state->count += sketch->buckets[i].count;
-	}
+		state->buckets[i] += sketch->buckets[i];
+
+	state->count += sketch->count;
 
 	PG_RETURN_POINTER(state);
 }
@@ -1284,12 +1255,9 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 
 	/* copy data from sketch to aggstate */
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		int index = sketch->buckets[i].index;
-		state->buckets[index].index = index;
-		state->buckets[index].count += sketch->buckets[i].count;
-		state->count += sketch->buckets[i].count;
-	}
+		state->buckets[i] += sketch->buckets[i];
+
+	state->count += sketch->count;
 
 	PG_RETURN_POINTER(state);
 }
@@ -1440,7 +1408,7 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 	len = offsetof(ddsketch_aggstate_t, percentiles) +
 		  state->npercentiles * sizeof(double) +
 		  state->nvalues * sizeof(double) +
-		  state->nbuckets * sizeof(bucket_t);
+		  state->nbuckets * sizeof(int64);
 
 	v = palloc(len + VARHDRSZ);
 
@@ -1464,8 +1432,8 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 
 	/* FIXME maybe don't serialize full buckets, but just the count */
 	memcpy(ptr, state->buckets,
-		   sizeof(bucket_t) * state->nbuckets);
-	ptr += sizeof(bucket_t) * state->nbuckets;
+		   sizeof(int64) * state->nbuckets);
+	ptr += sizeof(int64) * state->nbuckets;
 
 	Assert(VARDATA(v) + len == ptr);
 
@@ -1523,8 +1491,8 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 
 	/* copy the buckets back */
 	memcpy(state->buckets, ptr,
-		   sizeof(bucket_t) * state->nbuckets);
-	ptr += sizeof(bucket_t) * state->nbuckets;
+		   sizeof(int64) * state->nbuckets);
+	ptr += sizeof(int64) * state->nbuckets;
 
 	PG_RETURN_POINTER(state);
 }
@@ -1547,8 +1515,7 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 		memcpy(copy->percentiles, state->percentiles,
 			   sizeof(double) * state->npercentiles);
 
-	memcpy(copy->buckets, state->buckets,
-		   state->nbuckets * sizeof(bucket_t));
+	memcpy(copy->buckets, state->buckets, state->nbuckets * sizeof(int64));
 
 	return copy;
 }
@@ -1589,11 +1556,9 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	AssertCheckDDSketchAggState(src);
 
 	for (i = 0; i < dst->nbuckets; i++)
-	{
-		dst->buckets[i].index = src->buckets[i].index;
-		dst->buckets[i].count += src->buckets[i].count;
-		dst->count += src->buckets[i].count;
-	}
+		dst->buckets[i] += src->buckets[i];
+
+	dst->count += src->count;
 
 	AssertCheckDDSketchAggState(dst);
 
@@ -1608,7 +1573,6 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 static ddsketch_aggstate_t *
 ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 {
-	int		i;
 	ddsketch_aggstate_t *state;
 
 	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha, sketch->maxbuckets);
@@ -1616,13 +1580,7 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 	state->count = sketch->count;
 
 	/* copy data from the ddsketch into the aggstate */
-
-	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		int	index = sketch->buckets[i].index;
-
-		state->buckets[index] = sketch->buckets[i];
-	}
+	memcpy(state->buckets, sketch->buckets, sketch->nbuckets * sizeof(int64));
 
 	return state;
 }
@@ -1790,13 +1748,10 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 
 	/* copy data from sketch to aggstate */
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		int index = sketch->buckets[i].index;
-		state->buckets[index].index = index;
-		state->buckets[index].count += sketch->buckets[i].count;
-		state->count += sketch->buckets[i].count;
-	}
-		
+		state->buckets[i] += sketch->buckets[i];
+
+	state->count += sketch->count;
+
 	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
@@ -1869,8 +1824,7 @@ ddsketch_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("count value for all indexes in a ddsketch must be positive")));
 
-		sketch->buckets[i].index = index;
-		sketch->buckets[i].count = count;
+		sketch->buckets[index] = count;
 		sketch->count += count;
 
 		/* skip to the end of the centroid */
@@ -1900,9 +1854,12 @@ ddsketch_out(PG_FUNCTION_ARGS)
 					 sketch->flags, sketch->count, sketch->alpha, sketch->maxbuckets, sketch->nbuckets);
 
 	for (i = 0; i < sketch->nbuckets; i++)
-		appendStringInfo(&str, " (%d, " INT64_FORMAT ")",
-						 sketch->buckets[i].index,
-						 sketch->buckets[i].count);
+	{
+		if (sketch->buckets[i] == 0)
+			continue;
+
+		appendStringInfo(&str, " (%d, " INT64_FORMAT ")", i, sketch->buckets[i]);
+	}
 
 	PG_RETURN_CSTRING(str.data);
 }
@@ -1934,10 +1891,7 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	sketch->maxbuckets = maxbuckets;
 
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		sketch->buckets[i].index = pq_getmsgint(buf, 4);
-		sketch->buckets[i].count = pq_getmsgint64(buf);
-	}
+		sketch->buckets[i] = pq_getmsgint64(buf);
 
 	PG_RETURN_POINTER(sketch);
 }
@@ -1958,10 +1912,7 @@ ddsketch_send(PG_FUNCTION_ARGS)
 	pq_sendint(&buf, sketch->nbuckets, 4);
 
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		pq_sendint(&buf, sketch->buckets[i].index, 4);
-		pq_sendint64(&buf, sketch->buckets[i].count);
-	}
+		pq_sendint64(&buf, sketch->buckets[i]);
 
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
