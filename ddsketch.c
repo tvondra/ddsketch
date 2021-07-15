@@ -316,13 +316,22 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 c)
 	state->count += c;
 }
 
-/* allocate sketch with enough space for a requested number of buckets */
+/*
+ * ddsketch_allocate
+ *		allocate sketch with enough space for a requested number of buckets
+ *
+ * We allocate space only for nbuckets buckets, but we also store the maximum
+ * allowed number of buckets the sketch is allowed to use.
+ */
 static ddsketch_t *
-ddsketch_allocate(double alpha, int maxbuckets, int nbuckets)
+ddsketch_allocate(int64 count, double alpha, int maxbuckets, int nbuckets)
 {
 	Size		len;
 	ddsketch_t *sketch;
 	char	   *ptr;
+
+	Assert(nbuckets >= 0);
+	Assert(nbuckets <= maxbuckets);
 
 	len = offsetof(ddsketch_t, buckets) + nbuckets * sizeof(int64);
 
@@ -333,8 +342,7 @@ ddsketch_allocate(double alpha, int maxbuckets, int nbuckets)
 	sketch = (ddsketch_t *) ptr;
 
 	sketch->flags = 0;
-	sketch->count = 0;
-
+	sketch->count = count;
 	sketch->maxbuckets = maxbuckets;
 	sketch->nbuckets = nbuckets;
 	sketch->alpha = alpha;
@@ -343,11 +351,13 @@ ddsketch_allocate(double alpha, int maxbuckets, int nbuckets)
 }
 
 /*
- * allocate a ddsketch aggregate state, along with space for percentile(s)
+ * ddsketch_aggstate_allocate
+ *		allocate a ddsketch aggregate state, along with space for percentile(s)
  * and value(s) requested when calling the aggregate function
  */
 static ddsketch_aggstate_t *
-ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuckets)
+ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
+						   int maxbuckets, int nbuckets)
 {
 	Size				len;
 	ddsketch_aggstate_t *state;
@@ -372,7 +382,7 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuc
 	state->nvalues = nvalues;
 	state->npercentiles = npercentiles;
 	state->nbuckets = nbuckets;
-	state->maxbuckets = nbuckets;
+	state->maxbuckets = maxbuckets;
 	state->alpha = alpha;
 
 	if (npercentiles > 0)
@@ -400,21 +410,12 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha, int nbuc
 static ddsketch_t *
 ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 {
-	ddsketch_t  *sketch;
-	int			nbuckets;
+	ddsketch_t *sketch;
 
-	nbuckets = state->nbuckets;
+	sketch = ddsketch_allocate(state->count, state->alpha,
+							   state->maxbuckets, state->nbuckets);
 
-	sketch = ddsketch_allocate(state->alpha, state->maxbuckets, nbuckets);
-
-	sketch->count = state->count;
-	sketch->nbuckets = nbuckets;
-	sketch->maxbuckets = state->maxbuckets;
-	sketch->alpha = state->alpha;
-
-	memcpy(sketch->buckets, state->buckets, state->nbuckets * sizeof(int64));
-
-	Assert(sketch->nbuckets == nbuckets);
+	memcpy(sketch->buckets, state->buckets, sizeof(int64) * state->nbuckets);
 
 	return sketch;
 }
@@ -475,13 +476,13 @@ ddsketch_add_double(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	nbuckets = PG_GETARG_INT32(3);
+		int32	maxbuckets = PG_GETARG_INT32(3);
 
 		double *percentiles = NULL;
 		int		npercentiles = 0;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -494,7 +495,8 @@ ddsketch_add_double(PG_FUNCTION_ARGS)
 			check_percentiles(percentiles, npercentiles);
 		}
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		if (percentiles)
 		{
@@ -544,13 +546,13 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	nbuckets = PG_GETARG_INT32(4);
+		int32	maxbuckets = PG_GETARG_INT32(4);
 
 		double *percentiles = NULL;
 		int		npercentiles = 0;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -563,7 +565,8 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 			check_percentiles(percentiles, npercentiles);
 		}
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		if (percentiles)
 		{
@@ -620,13 +623,13 @@ ddsketch_add_double_values(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	nbuckets = PG_GETARG_INT32(3);
+		int32	maxbuckets = PG_GETARG_INT32(3);
 
 		double *values = NULL;
 		int		nvalues = 0;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -637,7 +640,8 @@ ddsketch_add_double_values(PG_FUNCTION_ARGS)
 			nvalues = 1;
 		}
 
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		if (values)
 		{
@@ -688,13 +692,13 @@ ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	nbuckets = PG_GETARG_INT32(3);
+		int32	maxbuckets = PG_GETARG_INT32(3);
 
 		double *values = NULL;
 		int		nvalues = 0;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -705,7 +709,8 @@ ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 			nvalues = 1;
 		}
 
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		if (values)
 		{
@@ -781,7 +786,8 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 			check_percentiles(percentiles, npercentiles);
 		}
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha, sketch->maxbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha,
+										   sketch->maxbuckets, sketch->nbuckets);
 
 		if (percentiles)
 		{
@@ -862,7 +868,8 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 			nvalues = 1;
 		}
 
-		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha, sketch->maxbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha,
+										   sketch->maxbuckets, sketch->nbuckets);
 
 		if (values)
 		{
@@ -916,13 +923,13 @@ ddsketch_add_double_array(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	nbuckets = PG_GETARG_INT32(3);
+		int32	maxbuckets = PG_GETARG_INT32(3);
 
 		double *percentiles;
 		int		npercentiles;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -932,7 +939,8 @@ ddsketch_add_double_array(PG_FUNCTION_ARGS)
 
 		check_percentiles(percentiles, npercentiles);
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
 
@@ -981,13 +989,13 @@ ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	nbuckets = PG_GETARG_INT32(4);
+		int32	maxbuckets = PG_GETARG_INT32(4);
 
 		double *percentiles;
 		int		npercentiles;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -997,7 +1005,8 @@ ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
 
 		check_percentiles(percentiles, npercentiles);
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
 
@@ -1050,13 +1059,13 @@ ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	nbuckets = PG_GETARG_INT32(3);
+		int32	maxbuckets = PG_GETARG_INT32(3);
 
 		double *values;
 		int		nvalues;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -1064,7 +1073,8 @@ ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
 								 PG_GETARG_ARRAYTYPE_P(4),
 								 &nvalues);
 
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		memcpy(state->values, values, sizeof(double) * nvalues);
 
@@ -1113,13 +1123,13 @@ ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	nbuckets = PG_GETARG_INT32(4);
+		int32	maxbuckets = PG_GETARG_INT32(4);
 
 		double *values;
 		int		nvalues;
 		MemoryContext	oldcontext;
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
@@ -1127,7 +1137,8 @@ ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 								 PG_GETARG_ARRAYTYPE_P(5),
 								 &nvalues);
 
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 
 		memcpy(state->values, values, sizeof(double) * nvalues);
 
@@ -1197,7 +1208,8 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 
 		check_percentiles(percentiles, npercentiles);
 
-		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha, sketch->maxbuckets);
+		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha,
+										   sketch->maxbuckets, sketch->nbuckets);
 
 		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
 
@@ -1262,7 +1274,8 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 								 PG_GETARG_ARRAYTYPE_P(2),
 								 &nvalues);
 
-		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha, sketch->maxbuckets);
+		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha,
+										   sketch->maxbuckets, sketch->nbuckets);
 
 		memcpy(state->values, values, sizeof(double) * nvalues);
 
@@ -1490,8 +1503,8 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 		ptr += tmp.nvalues * sizeof(double);
 	}
 
-	state = ddsketch_aggstate_allocate(tmp.npercentiles, tmp.nvalues,
-									   tmp.alpha, tmp.nbuckets);
+	state = ddsketch_aggstate_allocate(tmp.npercentiles, tmp.nvalues, tmp.alpha,
+									   tmp.maxbuckets, tmp.nbuckets);
 
 	if (tmp.npercentiles > 0)
 	{
@@ -1523,7 +1536,8 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 	ddsketch_aggstate_t *copy;
 
 	copy = ddsketch_aggstate_allocate(state->npercentiles, state->nvalues,
-									  state->alpha, state->nbuckets);
+									  state->alpha, state->maxbuckets,
+									  state->nbuckets);
 
 	memcpy(copy, state, offsetof(ddsketch_aggstate_t, percentiles));
 
@@ -1595,7 +1609,8 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 {
 	ddsketch_aggstate_t *state;
 
-	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha, sketch->maxbuckets);
+	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
+									   sketch->maxbuckets, sketch->nbuckets);
 
 	state->count = sketch->count;
 
@@ -1639,7 +1654,7 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha;
-		int32	nbuckets;
+		int32	maxbuckets;
 
 		/*
 		 * We don't require compression, but only when there is an existing
@@ -1652,11 +1667,11 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 			elog(ERROR, "nbuckets value not supplied, but ddsketch is NULL");
 
 		alpha = PG_GETARG_FLOAT8(2);
-		nbuckets = PG_GETARG_INT32(3);
+		maxbuckets = PG_GETARG_INT32(3);
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
-		state = ddsketch_aggstate_allocate(0, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, 0, alpha, maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
@@ -1702,7 +1717,7 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 	if (PG_ARGISNULL(0))
 	{
 		double	alpha;
-		int		nbuckets;
+		int		maxbuckets;
 
 		/*
 		 * We don't require compression, but only when there is an existing
@@ -1715,11 +1730,12 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 			elog(ERROR, "nbuckets value not supplied, but ddsketch is NULL");
 
 		alpha = PG_GETARG_FLOAT8(2);
-		nbuckets = PG_GETARG_INT32(3);
+		maxbuckets = PG_GETARG_INT32(3);
 
-		check_sketch_parameters(alpha, nbuckets);
+		check_sketch_parameters(alpha, maxbuckets);
 
-		state = ddsketch_aggstate_allocate(0, 0, alpha, nbuckets);
+		state = ddsketch_aggstate_allocate(0, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
@@ -1829,13 +1845,9 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("count value for the ddsketch must be positive")));
 
-	sketch = ddsketch_allocate(alpha, maxbuckets, nbuckets);
+	sketch = ddsketch_allocate(count, alpha, maxbuckets, nbuckets);
 
 	sketch->flags = flags;
-	sketch->count = count;
-	sketch->maxbuckets = maxbuckets;
-	sketch->nbuckets = nbuckets;
-	sketch->alpha = alpha;
 	sketch->count = 0;
 
 	ptr = str + header_length;
@@ -1924,12 +1936,9 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	maxbuckets = pq_getmsgint(buf, sizeof(int32));
 	nbuckets = pq_getmsgint(buf, sizeof(int32));
 
-	sketch = ddsketch_allocate(alpha, maxbuckets, nbuckets);
+	sketch = ddsketch_allocate(count, alpha, maxbuckets, nbuckets);
 
 	sketch->flags = flags;
-	sketch->count = count;
-	sketch->nbuckets = nbuckets;
-	sketch->maxbuckets = maxbuckets;
 
 	for (i = 0; i < sketch->nbuckets; i++)
 		sketch->buckets[i] = pq_getmsgint64(buf);
