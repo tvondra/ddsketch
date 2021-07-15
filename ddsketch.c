@@ -262,8 +262,10 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 		int64	count;
 		double	value = state->values[i];
 
-		/* FIXME offset the value by 1.0 to always produce positive value from log() */
-		index = ceil(log(1.0 + value) / log(gamma));
+		if (value < 1.0)
+			elog(ERROR, "ddsketch_add: the value has to be at least 1.0");
+
+		index = ceil(log(value) / log(gamma));
 
 		count = state->buckets[index] / 2;
 		for (j = 0; j < index; j++)
@@ -284,8 +286,10 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 c)
 
 	AssertCheckDDSketchAggState(state);
 
-	/* FIXME offset the value by 1.0 to always produce positive value from log() */
-	index = ceil(log(1.0 + v) / log(gamma));
+	if (v < 1.0)
+		elog(ERROR, "ddsketch_add: the value has to be at least 1.0");
+
+	index = ceil(log(v) / log(gamma));
 
 	/* FIXME maybe resize the sketch */
 	if (index >= state->nbuckets)

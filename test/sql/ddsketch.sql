@@ -351,7 +351,7 @@ SELECT * FROM (
 ----------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -365,7 +365,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -380,7 +380,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
@@ -394,7 +394,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -409,7 +409,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -423,7 +423,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -442,7 +442,7 @@ SELECT * FROM (
 --------------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -456,7 +456,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -471,7 +471,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
@@ -485,7 +485,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -500,7 +500,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -514,7 +514,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -533,7 +533,7 @@ SELECT * FROM (
 -------------------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -547,7 +547,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -562,7 +562,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
@@ -576,7 +576,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -591,7 +591,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -605,7 +605,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -624,7 +624,7 @@ SELECT * FROM (
 -------------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -638,7 +638,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -653,7 +653,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.005, -- arbitrary threshold of 0.5%
@@ -667,7 +667,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -682,7 +682,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -696,7 +696,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -716,7 +716,7 @@ SELECT * FROM (
 -----------------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -730,7 +730,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -745,7 +745,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
@@ -759,7 +759,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -774,7 +774,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -788,7 +788,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -807,7 +807,7 @@ SELECT * FROM (
 ----------------------------------------------------------
 
 -- 10 centroids (tiny)
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
@@ -821,7 +821,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -836,7 +836,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 100 centroids (okay-ish)
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
@@ -850,7 +850,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -865,7 +865,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 1000 centroids (very accurate)
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
     abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
@@ -879,7 +879,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -915,7 +915,7 @@ FROM (
 -- verify we can store ddsketch in a summary table
 CREATE TABLE intermediate_ddsketch (grouping int, summary ddsketch);
 
-WITH data AS (SELECT row_number() OVER () AS i, pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 INSERT INTO intermediate_ddsketch
 SELECT
     i % 10 AS grouping,
@@ -923,7 +923,7 @@ SELECT
 FROM data
 GROUP BY i % 10;
 
-WITH data AS (SELECT pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
      intermediate AS (SELECT ddsketch_percentile(summary, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate_ddsketch),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
@@ -1043,8 +1043,8 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) a FROM data_expanded) foo,
-       (SELECT ddsketch_percentile(x, (10 + 100 * cnt)::int, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
+       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
 -- 100 centroids (okay-ish)
@@ -1061,8 +1061,8 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) a FROM data_expanded) foo,
-       (SELECT ddsketch_percentile(x, (10 + 100 * cnt)::int, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
+       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
 -- 1000 centroids (very accurate)
@@ -1079,8 +1079,8 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) a FROM data_expanded) foo,
-       (SELECT ddsketch_percentile(x, (10 + 100 * cnt)::int, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
+       (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
 -- test incremental API (adding values one by one)
