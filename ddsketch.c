@@ -806,9 +806,25 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
 			 state->alpha, sketch->alpha);
 
+	/*
+	 * XXX Maybe this check is too strict and we should either ignore it or use
+	 * max of the two values? Because why fail if both pieces have nbucket well
+	 * within those limits?
+	 */
 	if (state->maxbuckets != sketch->maxbuckets)
 		elog(ERROR, "state and sketch are not compatible: nbuckets %d != %d",
 			 state->nbuckets, sketch->nbuckets);
+
+	/* make sure the destination has enough buckets */
+	if (state->nbuckets < sketch->nbuckets)
+	{
+		state->buckets = repalloc(state->buckets, sizeof(int64) * sketch->nbuckets);
+
+		memset(&state->buckets[state->nbuckets], 0,
+			   sizeof(int64) * (sketch->nbuckets - state->nbuckets));
+
+		state->nbuckets = sketch->nbuckets;
+	}
 
 	/* copy data from the sketch into the aggstate */
 	for (i = 0; i < sketch->nbuckets; i++)
