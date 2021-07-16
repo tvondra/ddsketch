@@ -1783,17 +1783,26 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	if ((alpha < MIN_SKETCH_ALPHA) || (alpha > MAX_SKETCH_ALPHA))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("alpha for ddsketch must be in [10, 10000]")));
+				 errmsg("alpha for ddsketch (%f) must be in [%f, %f]",
+						alpha, MIN_SKETCH_ALPHA, MAX_SKETCH_ALPHA)));
 
 	if ((maxbuckets < MIN_SKETCH_BUCKETS) || (maxbuckets > MAX_SKETCH_BUCKETS))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("number of buckets for ddsketch must be in [10, 10000]")));
+				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
+						nbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
 
 	if ((nbuckets < MIN_SKETCH_BUCKETS) || (nbuckets > MAX_SKETCH_BUCKETS))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("number of buckets for ddsketch must be in [10, 10000]")));
+				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
+						nbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
+
+	if (nbuckets > maxbuckets)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of buckets (%d) for ddsketch must not exceed maxbuckets (%d)",
+						nbuckets, maxbuckets)));
 
 	if (count <= 0)
 		ereport(ERROR,
@@ -1819,7 +1828,19 @@ ddsketch_in(PG_FUNCTION_ARGS)
 		if (sscanf(ptr, " (%d, " INT64_FORMAT ")", &index, &count) != 2)
 			break;
 
-		if (count < 0)
+		/* check that index is between 0 and (nbuckets-1) */
+		if (index < 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("bucket index (%d) in a ddsketch must not be negative", index)));
+		else if (index >= sketch->nbuckets)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("bucket index (%d) in a ddsketch overflows number of buckets (%d)",
+							index, sketch->nbuckets)));
+
+		/* we don't include empty buckets */
+		if (count <= 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("count value for all indexes in a ddsketch must be positive")));
