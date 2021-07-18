@@ -54,6 +54,13 @@ typedef struct ddsketch_t {
  * XXX Most of the considerations about representing sparse sketches applies
  * here too, except that the varlena compression won't help us with in-memory
  * representation. So it's a bit more pressing issue here.
+ *
+ * XXX Currently the code simply errors-out if the value being added would
+ * require a bucket outside the maxbuckets range. But we could also combine
+ * buckets on either upper or lower end of the sketch - we're probably
+ * interested in percentiles on one of the tails, so we may sacrifice
+ * precision on the other end (or in the middle). That's pretty much the
+ * same idea as t-digest, although with a guarantee on relative error.
  */
 typedef struct ddsketch_aggstate_t {
 	/* basic sketch fields */
