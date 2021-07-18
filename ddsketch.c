@@ -21,6 +21,17 @@ PG_MODULE_MAGIC;
 
 /*
  * On-disk representation of the ddsketch.
+ *
+ * XXX We store all buckets, including empty ones. But most sketches are likely
+ * sparse, i.e. only a small fraction of buckets is non-empty. Consider for
+ * example a sketch of latency of an API call - the values are probably from
+ * a very narrow interval most of the time, hence only very few buckets will
+ * be non-empty. In particular, the lower buckets tend to be empty (e.g. for
+ * latencies), because the latency is usually stable when something breaks
+ * the latency increases. So by not storing the empty buckets we might save
+ * some space, although it depends on how many non-empty ranges are there,
+ * actually. The other option would be to use varint instead of int64. For now
+ * we rely on varlena compression, which should address this transparently.
  */
 typedef struct ddsketch_t {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
@@ -39,6 +50,10 @@ typedef struct ddsketch_t {
  * XXX We only ever use one of values/percentiles, never both at the same
  * time. In the future the values may use a different data types than double
  * (e.g. numeric), so we keep both fields.
+ *
+ * XXX Most of the considerations about representing sparse sketches applies
+ * here too, except that the varlena compression won't help us with in-memory
+ * representation. So it's a bit more pressing issue here.
  */
 typedef struct ddsketch_aggstate_t {
 	/* basic sketch fields */
