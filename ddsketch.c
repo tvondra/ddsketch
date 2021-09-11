@@ -606,7 +606,9 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 	else
 		count = PG_GETARG_INT64(2);
 
-	Assert(count > 0);
+	/* can't add values with non-positive counts */
+	if (count <= 0)
+		elog(ERROR, "invalid count value %ld, must be a positive value", count);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
@@ -750,7 +752,9 @@ ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 	else
 		count = PG_GETARG_INT64(2);
 
-	Assert(count > 0);
+	/* can't add values with non-positive counts */
+	if (count <= 0)
+		elog(ERROR, "invalid count value %ld, must be a positive value", count);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
@@ -1192,7 +1196,9 @@ ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 	else
 		count = PG_GETARG_INT64(2);
 
-	Assert(count > 0);
+	/* can't add values with non-positive counts */
+	if (count <= 0)
+		elog(ERROR, "invalid count value %ld, must be a positive value", count);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
