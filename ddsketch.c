@@ -55,6 +55,9 @@ typedef struct ddsketch_t {
 	bucket_t	buckets[FLEXIBLE_ARRAY_MEMBER];
 } ddsketch_t;
 
+#define	SKETCH_BUCKETS(sketch) ((sketch)->buckets)
+#define	SKETCH_BUCKETS_BYTES(sketch) (BUCKETS_BYTES((sketch)->nbuckets))
+
 #define	SKETCH_BUCKETS_NEGATIVE(sketch) ((sketch)->buckets)
 #define	SKETCH_BUCKETS_NEGATIVE_COUNT(sketch) ((sketch)->nbuckets_negative)
 
@@ -306,7 +309,6 @@ static void
 ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 {
 	int			i;
-	double		gamma = (1 + state->alpha) / (1 - state->alpha);
 
 	AssertCheckDDSketchAggState(state);
 
@@ -335,7 +337,7 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		/* are we done after processing the negative store? */
 		if (count > goal)
 		{
-			result[i] = - 2 * pow(gamma, index) / (gamma + 1);
+			result[i] = - 2 * pow(state->gamma, index) / (state->gamma + 1);
 			continue;
 		}
 
@@ -362,8 +364,7 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 
 		Assert(count >= goal);
 
-		result[i] = 2 * pow(gamma, index) / (gamma + 1);
-
+		result[i] = 2 * pow(state->gamma, index) / (state->gamma + 1);
 	}
 }
 
@@ -748,7 +749,7 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 							   state->nbuckets,
 							   STATE_BUCKETS_NEGATIVE_COUNT(state));
 
-	memcpy(sketch->buckets, state->buckets, STATE_BUCKETS_BYTES(state));
+	memcpy(sketch->buckets, STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
 
 	return sketch;
 }
@@ -1965,7 +1966,7 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 	}
 
 	/* FIXME maybe don't serialize full buckets, but just the count */
-	memcpy(ptr, state->buckets, STATE_BUCKETS_BYTES(state));
+	memcpy(ptr, STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
 	ptr += STATE_BUCKETS_BYTES(state);
 
 	Assert(VARDATA(v) + len == ptr);
@@ -2024,7 +2025,7 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 	/* we don't need to move the pointer */
 
 	/* copy the buckets back */
-	memcpy(state->buckets, ptr, STATE_BUCKETS_BYTES(state));
+	memcpy(STATE_BUCKETS(state), ptr, STATE_BUCKETS_BYTES(state));
 	ptr += STATE_BUCKETS_BYTES(state);
 
 	PG_RETURN_POINTER(state);
@@ -2050,7 +2051,7 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 		memcpy(copy->percentiles, state->percentiles,
 			   sizeof(double) * state->npercentiles);
 
-	memcpy(copy->buckets, state->buckets, STATE_BUCKETS_BYTES(state));
+	memcpy(STATE_BUCKETS(copy), STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
 
 	return copy;
 }
@@ -2122,8 +2123,8 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 	state->count = sketch->count;
 
 	/* copy data from the ddsketch into the aggstate */
-	memcpy(state->buckets, sketch->buckets,
-		   sketch->nbuckets * sizeof(int64));
+	memcpy(STATE_BUCKETS(state), SKETCH_BUCKETS_NEGATIVE(sketch),
+		   SKETCH_BUCKETS_BYTES(sketch));
 
 	return state;
 }
