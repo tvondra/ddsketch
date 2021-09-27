@@ -482,9 +482,9 @@ bucket_comparator_reverse(const void *a, const void *b)
 static void
 ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 count)
 {
-	int			i;
 	bucket_t   *buckets;
 	int			nbuckets;
+	bucket_t   *bucket;
 
 	/*
 	 * See if we already have a bucket with the calculated index. We search
@@ -492,27 +492,32 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	 */
 	if (positive)	/* positive part */
 	{
+		bucket_t	key;
+
 		buckets = STATE_BUCKETS_POSITIVE(state);
 		nbuckets = STATE_BUCKETS_POSITIVE_COUNT(state);
+
+		key.index = index;
+		bucket = bsearch(&key, buckets, nbuckets, sizeof(bucket_t),
+						 bucket_comparator);
 	}
 	else	/* negative part */
 	{
+		bucket_t	key;
+
 		buckets = STATE_BUCKETS_NEGATIVE(state);
 		nbuckets = STATE_BUCKETS_NEGATIVE_COUNT(state);
+
+		key.index = index;
+		bucket = bsearch(&key, buckets, nbuckets, sizeof(bucket_t),
+						 bucket_comparator_reverse);
 	}
 
-	/*
-	 * XXX Linear search - should be optimized to use bsearch or some kind
-	 * of simple hash table.
-	 */
-	for (i = 0; i < nbuckets; i++)
+	/* If we found a matching bucket, we're done. */
+	if (bucket)
 	{
-		/* If we found an existing bucket, we're done. */
-		if (buckets[i].index == index)
-		{
-			buckets[i].count += count;
-			return;
-		}
+		bucket->count += count;
+		return;
 	}
 
 	/*
