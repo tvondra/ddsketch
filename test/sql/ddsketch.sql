@@ -78,11 +78,11 @@ $$ LANGUAGE plpgsql;
 -----------------------------------------------------------
 
 -- alpha = 0.05
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    (abs(a - b) / 1000000::double precision) < 0.05,
-    (CASE WHEN (abs(a - b) / 1000000::double precision) < 0.05 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    (abs(a - b) / 100000::double precision) < 0.05,
+    (CASE WHEN (abs(a - b) / 100000::double precision) < 0.05 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -91,11 +91,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    (abs(a - b) / 1000000::double precision) < 0.05,
-    (CASE WHEN (abs(a - b) / 1000000::double precision) < 0.05 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    (abs(a - b) / 100000::double precision) < 0.05,
+    (CASE WHEN (abs(a - b) / 100000::double precision) < 0.05 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -104,11 +104,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    (abs(a - b) / 1000000::double precision) < 0.05,
-    (CASE WHEN (abs(a - b) / 1000000::double precision) < 0.05 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    (abs(a - b) / 100000::double precision) < 0.05,
+    (CASE WHEN (abs(a - b) / 100000::double precision) < 0.05 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -118,7 +118,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -132,7 +132,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000  AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 50000  AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -146,7 +146,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -161,11 +161,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -174,11 +174,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -187,11 +187,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) / 100000::double precision END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -201,7 +201,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -215,7 +215,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -229,7 +229,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -244,11 +244,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -257,11 +257,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -270,11 +270,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -284,7 +284,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -298,7 +298,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -312,7 +312,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -331,11 +331,11 @@ SELECT * FROM (
 ------------------------------------------------------------
 
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -345,11 +345,11 @@ FROM (
 ) foo;
 
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -359,11 +359,11 @@ FROM (
 ) foo;
 
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -373,7 +373,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -387,7 +387,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -401,7 +401,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -416,11 +416,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -429,11 +429,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -442,11 +442,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -456,7 +456,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -470,7 +470,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -484,7 +484,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -499,11 +499,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -512,11 +512,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -525,11 +525,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -539,7 +539,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -553,7 +553,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -567,7 +567,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -586,11 +586,11 @@ SELECT * FROM (
 ----------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -599,11 +599,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -612,11 +612,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -626,7 +626,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -641,7 +641,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -655,7 +655,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -670,11 +670,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -683,11 +683,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -696,11 +696,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -710,7 +710,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -724,7 +724,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -738,7 +738,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -753,11 +753,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -766,11 +766,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -779,11 +779,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -793,7 +793,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -807,7 +807,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 500000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -821,7 +821,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 1000000 AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -840,11 +840,11 @@ SELECT * FROM (
 ----------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -853,11 +853,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -866,11 +866,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -880,7 +880,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -894,7 +894,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -908,7 +908,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -923,11 +923,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -936,11 +936,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -949,11 +949,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -963,7 +963,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -977,7 +977,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -991,7 +991,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1006,11 +1006,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1019,11 +1019,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1032,11 +1032,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1046,7 +1046,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1060,7 +1060,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 500000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1074,7 +1074,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * x - 1000000 AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1093,11 +1093,11 @@ SELECT * FROM (
 --------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1106,11 +1106,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1119,11 +1119,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 1000000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1133,7 +1133,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1147,7 +1147,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1161,7 +1161,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1176,11 +1176,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1189,11 +1189,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1202,11 +1202,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 1000000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1216,7 +1216,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1230,7 +1230,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1244,7 +1244,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1259,11 +1259,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1272,11 +1272,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1285,11 +1285,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1299,7 +1299,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1313,7 +1313,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1327,7 +1327,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(z) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1346,11 +1346,11 @@ SELECT * FROM (
 -------------------------------------------------------
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1359,11 +1359,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1372,11 +1372,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1386,7 +1386,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1400,7 +1400,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1414,7 +1414,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1429,11 +1429,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1442,11 +1442,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1455,11 +1455,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1469,7 +1469,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1483,7 +1483,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1497,7 +1497,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1512,11 +1512,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1525,11 +1525,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1538,11 +1538,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1552,7 +1552,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1566,7 +1566,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1580,7 +1580,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * sqrt(sqrt(z)) - 1000000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1599,11 +1599,11 @@ SELECT * FROM (
 -------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1612,11 +1612,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1626,7 +1626,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1640,7 +1640,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1655,11 +1655,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.005, -- arbitrary threshold of 0.5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.005 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.005, -- arbitrary threshold of 0.5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.005 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1668,11 +1668,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.005, -- arbitrary threshold of 0.5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.005 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.005, -- arbitrary threshold of 0.5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.005 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1682,7 +1682,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1696,7 +1696,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1711,11 +1711,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1724,11 +1724,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1738,7 +1738,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1752,7 +1752,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 2) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1771,11 +1771,11 @@ SELECT * FROM (
 -----------------------------------------------------
 
 -- 0.05 alpha
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1784,11 +1784,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1798,7 +1798,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1812,7 +1812,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1827,11 +1827,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1840,11 +1840,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1854,7 +1854,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1868,7 +1868,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1883,11 +1883,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1896,11 +1896,11 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1910,7 +1910,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1924,7 +1924,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT 1000000 * pow(z, 4) - 500000 AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1943,11 +1943,11 @@ SELECT * FROM (
 ----------------------------------------------------------
 
 -- 0.05 alpha
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1957,7 +1957,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1972,11 +1972,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.01 alpha
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1986,7 +1986,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2001,11 +2001,11 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2015,7 +2015,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1000000 * pow(z, 3) AS x FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2031,14 +2031,14 @@ SELECT * FROM (
 
 -- some basic tests to verify transforming from and to text work
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2048,14 +2048,14 @@ FROM (
          pg_percentile
 ) foo;
 
-WITH data AS (SELECT i - 500000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2065,14 +2065,14 @@ FROM (
          pg_percentile
 ) foo;
 
-WITH data AS (SELECT i - 1000000 AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.05, -- arbitrary threshold of 5%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2085,7 +2085,7 @@ FROM (
 -- verify we can store ddsketch in a summary table
 CREATE TABLE intermediate_ddsketch (grouping int, summary ddsketch);
 
-WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z))
 INSERT INTO intermediate_ddsketch
 SELECT
     i % 10 AS grouping,
@@ -2093,13 +2093,13 @@ SELECT
 FROM data
 GROUP BY i % 10;
 
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z)),
      intermediate AS (SELECT ddsketch_percentile(summary, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate_ddsketch),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2113,8 +2113,8 @@ FROM (
 WITH data AS (SELECT x FROM generate_series(1,10) AS x)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.1, -- arbitrary threshold of 10% given the small dataset and extreme percentiles it is not very accurate
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.1, -- arbitrary threshold of 10% given the small dataset and extreme percentiles it is not very accurate
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.99]) AS p,
@@ -2205,8 +2205,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.1, -- arbitrary threshold of 10%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.1, -- arbitrary threshold of 10%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2223,8 +2223,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.01, -- arbitrary threshold of 1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -2241,8 +2241,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    abs(a - b) / 100000::double precision < 0.001, -- arbitrary threshold of 0.1%
+    (CASE WHEN abs(a - b) / 100000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
