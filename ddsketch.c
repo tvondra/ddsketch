@@ -274,7 +274,9 @@ static double *array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int * len)
 
 /* mapping to bucket indexes etc. */
 static double ddsketch_log_gamma(ddsketch_aggstate_t *state, double value);
+static double ddsketch_pow_gamma(ddsketch_aggstate_t *state, double value);
 static int    ddsketch_map_index(ddsketch_aggstate_t *state, double value);
+static double ddsketch_map_value(ddsketch_aggstate_t *state, double index);
 
 /* boundaries for relative error */
 #define	MIN_SKETCH_ALPHA	0.0001
@@ -395,7 +397,7 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		int		j;
 		int		index = 0;
 		int64	count = 0;
-		double	goal = (state->percentiles[i] * state->count);
+		double	goal = (state->percentiles[i] * (state->count - 1));
 		bucket_t *buckets;
 
 		/*
@@ -415,7 +417,7 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		/* are we done after processing the negative store? */
 		if (count > goal)
 		{
-			result[i] = - 2 * pow(state->gamma, index) / (state->gamma + 1);
+			result[i] = -ddsketch_map_value(state, index);;
 			continue;
 		}
 
@@ -425,7 +427,7 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		/* are we done after processing the zero bucket? */
 		if (count > goal)
 		{
-			result[i] = 0; /* FIXME is it correct to just use 0? */
+			result[i] = 0;
 			continue;
 		}
 
@@ -442,7 +444,8 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 
 		Assert(count >= goal);
 
-		result[i] = 2 * pow(state->gamma, index) / (state->gamma + 1);
+		result[i] = ddsketch_map_value(state, index);
+		// 2 * pow(state->gamma, index) / (state->gamma + 1);
 	}
 }
 
@@ -2776,8 +2779,20 @@ ddsketch_log_gamma(ddsketch_aggstate_t *state, double value)
 	return log(value) / log(2.0) * state->multiplier;
 }
 
+static double
+ddsketch_pow_gamma(ddsketch_aggstate_t *state, double value)
+{
+	return pow(2.0, (value / state->multiplier));
+}
+
 static int
 ddsketch_map_index(ddsketch_aggstate_t *state, double value)
 {
 	return (int)(ceil(ddsketch_log_gamma(state, value)) + state->offset);
+}
+
+static double
+ddsketch_map_value(ddsketch_aggstate_t *state, double index)
+{
+	return ddsketch_pow_gamma(state, index - state->offset) * (2.0 / (1 + state->gamma));
 }
