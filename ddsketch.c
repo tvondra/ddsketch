@@ -295,6 +295,8 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 		count += state->buckets[i].count;
 	}
 
+	Assert(count == state->count);
+
 	Assert(state->npercentiles >= 0);
 	Assert(state->nvalues >= 0);
 
@@ -747,6 +749,8 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 {
 	ddsketch_t *sketch;
 
+	AssertCheckDDSketchAggState(state);
+
 	sketch = ddsketch_allocate(state->count,
 							   state->alpha,
 							   state->zero_count,
@@ -755,6 +759,8 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 							   STATE_BUCKETS_NEGATIVE_COUNT(state));
 
 	memcpy(sketch->buckets, STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
+
+	AssertCheckDDSketch(sketch);
 
 	return sketch;
 }
@@ -1092,6 +1098,9 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 	int			n;
 	bucket_t   *b;
 
+	if (nbuckets == 0)
+		return;
+
 	/*
 	 * We simply copy buckets from both sources into a single array, sort
 	 * it and then combine buckets with the same index. Then we copy the
@@ -1103,7 +1112,7 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 		b = (bucket_t *) palloc(BUCKETS_BYTES(n));
 
 		/* copy the new buckets */
-		memcpy(b, buckets, nbuckets);
+		memcpy(b, buckets, BUCKETS_BYTES(nbuckets));
 
 		/* copy the existing positive buckets */
 		memcpy(b + nbuckets, STATE_BUCKETS_POSITIVE(state),
@@ -1118,7 +1127,7 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 		b = (bucket_t *) palloc(BUCKETS_BYTES(n));
 
 		/* copy the new buckets */
-		memcpy(b, buckets, nbuckets);
+		memcpy(b, buckets, BUCKETS_BYTES(nbuckets));
 
 		/* copy the existing negative buckets */
 		memcpy(b + nbuckets, STATE_BUCKETS_NEGATIVE(state),
@@ -1132,19 +1141,19 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 	j = 0;
 	for (i = 1; i < n; i++)
 	{
-		/* same as preceding bucket, so merge it into */
-		if (b[i].index == b[j].index)
+		/* not the same as preceding bucket, so a new one */
+		if (b[i].index != b[i-1].index)
 		{
-			b[j].count += b[i].count;
+			b[++j] = b[i];
 			continue;
 		}
 
-		/* we'll need to store it in new slot */
-		b[++j] = b[i];
+		/* just add it to the "current" bucket  */
+		b[j].count += b[i].count;
 	}
 
-	/* remember the number of combined buckets */
-	n = j;
+	/* number of combined buckets (index of last bucket plus one) */
+	n = (j+1);
 
 	/* how many total buckets we'll need in the aggstate */
 	if (positive)
@@ -1677,6 +1686,8 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 
 	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
+	AssertCheckDDSketch(sketch);
+
 	/* if there's no aggregate state allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
@@ -1705,8 +1716,10 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 	else
 		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
-	/* check that the sketch and aggstate are compatible */
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
 
+	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
 			 state->alpha, sketch->alpha);
@@ -1721,6 +1734,8 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 
 	state->zero_count += sketch->zero_count;
 	state->count += sketch->count;
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(state);
 }
@@ -1756,6 +1771,8 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 
 	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
 
+	AssertCheckDDSketch(sketch);
+
 	/* if there's no aggregate state allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
@@ -1782,8 +1799,9 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 	else
 		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
-	/* check that the sketch and aggstate are compatible */
+	AssertCheckDDSketchAggState(state);
 
+	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
 			 state->alpha, sketch->alpha);
@@ -1798,6 +1816,8 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 
 	state->zero_count += sketch->zero_count;
 	state->count += sketch->count;
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(state);
 }
@@ -2126,10 +2146,13 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 									   sketch->nbuckets);
 
 	state->count = sketch->count;
+	state->nbuckets = sketch->nbuckets;
 
 	/* copy data from the ddsketch into the aggstate */
 	memcpy(STATE_BUCKETS(state), SKETCH_BUCKETS_NEGATIVE(sketch),
 		   SKETCH_BUCKETS_BYTES(sketch));
+
+	AssertCheckDDSketchAggState(state);
 
 	return state;
 }
@@ -2192,7 +2215,11 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 	else
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
 
+	AssertCheckDDSketchAggState(state);
+
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
 }
@@ -2370,7 +2397,7 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("count value for the ddsketch must be positive")));
 
-	if (zero_count <= 0)
+	if (zero_count < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("zero_count value for the ddsketch must be positive")));
@@ -2434,9 +2461,9 @@ ddsketch_out(PG_FUNCTION_ARGS)
 
 	initStringInfo(&str);
 
-	appendStringInfo(&str, "flags %d count " INT64_FORMAT " alpha %lf maxbuckets %d buckets %d %d",
-					 sketch->flags, sketch->count, sketch->alpha, sketch->maxbuckets,
-					 sketch->nbuckets, sketch->nbuckets_negative);
+	appendStringInfo(&str, "flags %d count " INT64_FORMAT " alpha %lf zero_count " INT64_FORMAT " maxbuckets %d buckets %d %d",
+					 sketch->flags, sketch->count, sketch->alpha, sketch->zero_count,
+					 sketch->maxbuckets, sketch->nbuckets, sketch->nbuckets_negative);
 
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
