@@ -42,15 +42,36 @@ PG_MODULE_MAGIC;
  * we usually save quite a bit of space. We could store all buckets and
  * rely on TOAST compression to fix this, but this seems more reliable.
  *
+ * Each bucket stores an index (calculated by the mapping function) and
+ * the number of values stored in the bucket. The index is calculated by
+ * the mapping function (ddsketch_map_index) and is not the same as index
+ * in the bucket array. It may be negative for values close to 0.
+ *
+ * The array stores buckets for both the positive and negative values, as
+ * it's easier to manage (enforcing the maxbuckets limit etc.) than two
+ * separate arrays. The array stores negative and positive buckets, in this
+ * order. The "nbuckets" tracks the total number of buckets (both parts)
+ * and "nbuckets_negative" tracks the negative part.
+ *
+ * The two parts are sorted by index (separately) - negative buckets in
+ * descending order, while positive in ascending order.
+ *
+ * This struct represents the serialized (on-disk) sketch, and we never
+ * add buckets to it. So the array is allocated with exactly the right
+ * number of buckets.
+ *
+ * Values too close to zero can't be represented by the negative/positive
+ * buckets, and are stored in a separate "zero bucket" (zero_count).
+ *
  * XXX We could use varint instead of uint16/int64 to store the buckets,
  * which would help if most buckets are almost empty.
+ *
+ * XXX Maybe a bloom filter tracking existing buckets wold be helpful?
  */
 typedef struct bucket_t {
-	int32	index;
-	int64	count;
+	int32	index;	/* mapping index */
+	int64	count;	/* bucket counter */
 } bucket_t;
-
-#define		BUCKETS_BYTES(cnt)		((cnt) * sizeof(bucket_t))
 
 typedef struct ddsketch_t {
 	int32		vl_len_;		/* varlena header (do not touch directly!) */
@@ -64,26 +85,51 @@ typedef struct ddsketch_t {
 	bucket_t	buckets[FLEXIBLE_ARRAY_MEMBER];
 } ddsketch_t;
 
-#define	SKETCH_BUCKETS(sketch) ((sketch)->buckets)
-#define	SKETCH_BUCKETS_BYTES(sketch) (BUCKETS_BYTES((sketch)->nbuckets))
+#define	SKETCH_DEFAULT_FLAGS	0
 
-#define	SKETCH_BUCKETS_NEGATIVE(sketch) ((sketch)->buckets)
-#define	SKETCH_BUCKETS_NEGATIVE_COUNT(sketch) ((sketch)->nbuckets_negative)
+#define	BUCKETS_BYTES(cnt)	\
+	((cnt) * sizeof(bucket_t))
 
-#define	SKETCH_BUCKETS_POSITIVE(sketch) ((sketch)->buckets + (sketch)->nbuckets_negative)
-#define	SKETCH_BUCKETS_POSITIVE_COUNT(sketch) ((sketch)->nbuckets - (sketch)->nbuckets_negative)
+#define	SKETCH_BUCKETS(sketch)	\
+	((sketch)->buckets)
+
+#define	SKETCH_BUCKETS_BYTES(sketch)	\
+	(BUCKETS_BYTES((sketch)->nbuckets))
+
+#define	SKETCH_BUCKETS_NEGATIVE(sketch)	\
+	((sketch)->buckets)
+
+#define	SKETCH_BUCKETS_NEGATIVE_COUNT(sketch)	\
+	((sketch)->nbuckets_negative)
+
+#define	SKETCH_BUCKETS_POSITIVE(sketch)	\
+	((sketch)->buckets + (sketch)->nbuckets_negative)
+
+#define	SKETCH_BUCKETS_POSITIVE_COUNT(sketch)	\
+	((sketch)->nbuckets - (sketch)->nbuckets_negative)
+
+#define PG_GETARG_DDSKETCH(x)	\
+	(ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(x))
 
 /*
  * An aggregate state, representing the sketch and some additional info
  * (requested percentiles, ...).
  *
+ * This is similar to the ddsketch_t struct, but includes various values
+ * necessary for mapping values to buckets, determining the indexable
+ * range and so on.
+ *
+ * The array of buckets is allocated using the usual doubling strategy.
+ * The allocated space is tracked in nbuckets_allocated, while nbuckets
+ * stores the number of buckets actually used. The array is split into
+ * negative/positive buckets, just like for ddsketch_t.
+ *
+ * Values too close to zero can't be represented by the negative/positive
+ * buckets, and are stored in a separate "zero bucket" (zero_count).
+ *
  * XXX We only ever use one of values/percentiles, never both at the same
  * time. In the future the values may use a different data types than double
  * (e.g. numeric), so we keep both fields.
- *
- * XXX Most of the considerations about representing sparse sketches applies
- * here too, except that the varlena compression won't help us with in-memory
- * representation. So it's a bit more pressing issue here.
  *
  * XXX Currently the code simply errors-out if the value being added would
  * require a bucket outside the maxbuckets range. But we could also combine
@@ -121,21 +167,35 @@ typedef struct ddsketch_aggstate_t {
 	double	   *values;			/* array of values (if any) */
 } ddsketch_aggstate_t;
 
-#define STATE_BUCKETS_FULL(state)	((state)->nbuckets == (state)->nbuckets_allocated)
+#define STATE_BUCKETS_FULL(state)	\
+	((state)->nbuckets == (state)->nbuckets_allocated)
 
-#define	STATE_BUCKETS_USED(state)			((state)->nbuckets)
-#define	STATE_BUCKETS_BYTES(state)			BUCKETS_BYTES(STATE_BUCKETS_USED(state))
+#define	STATE_BUCKETS_USED(state)	\
+	((state)->nbuckets)
 
-#define	STATE_BUCKETS_NEGATIVE_COUNT(state)	((state)->nbuckets_negative)
-#define	STATE_BUCKETS_POSITIVE_COUNT(state)	((state)->nbuckets - (state)->nbuckets_negative)
-#define	STATE_BUCKETS_POSITIVE_BYTES(state)	BUCKETS_BYTES(STATE_BUCKETS_POSITIVE_COUNT(state))
+#define	STATE_BUCKETS_BYTES(state)	\
+	BUCKETS_BYTES(STATE_BUCKETS_USED(state))
 
-#define	STATE_BUCKETS(state)			((state)->buckets)
-#define	STATE_BUCKETS_NEGATIVE(state)	((state)->buckets)
-#define	STATE_BUCKETS_POSITIVE(state)	((state)->buckets + (state)->nbuckets_negative)
+#define	STATE_BUCKETS_NEGATIVE_COUNT(state)	\
+	((state)->nbuckets_negative)
 
+#define	STATE_BUCKETS_NEGATIVE_BYTES(state)	\
+	BUCKETS_BYTES(STATE_BUCKETS_NEGATIVE_COUNT(state))
 
-#define PG_GETARG_DDSKETCH(x)	(ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(x))
+#define	STATE_BUCKETS_POSITIVE_COUNT(state)	\
+	((state)->nbuckets - (state)->nbuckets_negative)
+
+#define	STATE_BUCKETS_POSITIVE_BYTES(state)	\
+	BUCKETS_BYTES(STATE_BUCKETS_POSITIVE_COUNT(state))
+
+#define	STATE_BUCKETS(state)	\
+	((state)->buckets)
+
+#define	STATE_BUCKETS_NEGATIVE(state)	\
+	((state)->buckets)
+
+#define	STATE_BUCKETS_POSITIVE(state)	\
+	((state)->buckets + (state)->nbuckets_negative)
 
 /* prototypes */
 PG_FUNCTION_INFO_V1(ddsketch_add_double_array);
@@ -231,6 +291,7 @@ AssertCheckDDSketch(ddsketch_t *sketch)
 #ifdef USE_ASSERT_CHECKING
 	int 	i;
 	int64	count;
+	bucket_t *buckets;
 
 	Assert(sketch->alpha >= MIN_SKETCH_ALPHA);
 	Assert(sketch->alpha <= MAX_SKETCH_ALPHA);
@@ -238,27 +299,30 @@ AssertCheckDDSketch(ddsketch_t *sketch)
 	Assert(sketch->maxbuckets >= MIN_SKETCH_BUCKETS);
 	Assert(sketch->maxbuckets <= MAX_SKETCH_BUCKETS);
 
-	Assert(sketch->nbuckets <= MAX_SKETCH_BUCKETS);
-	Assert(sketch->nbuckets_negative <= MAX_SKETCH_BUCKETS);
-
 	Assert(sketch->maxbuckets >= sketch->nbuckets);
 	Assert(sketch->nbuckets >= sketch->nbuckets_negative);
 	Assert(sketch->nbuckets_negative >= 0);
 
 	count = sketch->zero_count;
 
-	for (i = 0; i < sketch->nbuckets_negative; i++)
+	/* negative part */
+	buckets = SKETCH_BUCKETS_NEGATIVE(sketch);
+	for (i = 0; i < SKETCH_BUCKETS_NEGATIVE_COUNT(sketch); i++)
 	{
-		Assert((i == 0) || (sketch->buckets[i-1].index > sketch->buckets[i].index));
-		Assert(sketch->buckets[i].count > 0);
-		count += sketch->buckets[i].count;
+		/* negative part sorted by index in desdending order */
+		Assert((i == 0) || (buckets[i-1].index > buckets[i].index));
+		Assert(buckets[i].count > 0);
+		count += buckets[i].count;
 	}
 
-	for (i = sketch->nbuckets_negative; i < sketch->nbuckets; i++)
+	/* positive part */
+	buckets = SKETCH_BUCKETS_POSITIVE(sketch);
+	for (i = 0; i < SKETCH_BUCKETS_POSITIVE_COUNT(sketch); i++)
 	{
-		Assert((i == sketch->nbuckets_negative) || (sketch->buckets[i-1].index < sketch->buckets[i].index));
-		Assert(sketch->buckets[i].count > 0);
-		count += sketch->buckets[i].count;
+		/* positive part sorted by index in ascending order */
+		Assert((i == 0) || (buckets[i-1].index < buckets[i].index));
+		Assert(buckets[i].count > 0);
+		count += buckets[i].count;
 	}
 
 	Assert(count == sketch->count);
@@ -271,6 +335,7 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 #ifdef USE_ASSERT_CHECKING
 	int		i;
 	int64	count;
+	bucket_t *buckets;
 
 	Assert(state->alpha >= MIN_SKETCH_ALPHA);
 	Assert(state->alpha <= MAX_SKETCH_ALPHA);
@@ -278,30 +343,31 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 	Assert(state->maxbuckets >= MIN_SKETCH_BUCKETS);
 	Assert(state->maxbuckets <= MAX_SKETCH_BUCKETS);
 
-	Assert(state->nbuckets <= MAX_SKETCH_BUCKETS);
-
-	Assert(state->nbuckets_allocated <= MAX_SKETCH_BUCKETS);
-
 	Assert(state->maxbuckets >= state->nbuckets_allocated);
 	Assert(state->nbuckets_allocated >= state->nbuckets);
 	Assert(state->nbuckets >= state->nbuckets_negative);
 	Assert(state->nbuckets_negative >= 0);
 
-	count = 0;
-	for (i = 0; i < state->nbuckets_negative; i++)
+	count = state->zero_count;
+
+	/* negative part */
+	buckets = STATE_BUCKETS_NEGATIVE(state);
+	for (i = 0; i < STATE_BUCKETS_NEGATIVE_COUNT(state); i++)
 	{
-		/* negative part has indexes in decreasing order */
-		Assert((i == 0) || (state->buckets[i-1].index > state->buckets[i].index));
-		Assert(state->buckets[i].count > 0);
-		count += state->buckets[i].count;
+		/* negative part sorted by index in desdending order */
+		Assert((i == 0) || (buckets[i-1].index > buckets[i].index));
+		Assert(buckets[i].count > 0);
+		count += buckets[i].count;
 	}
 
-	for (i = state->nbuckets_negative; i < state->nbuckets; i++)
+	/* positive part */
+	buckets = STATE_BUCKETS_POSITIVE(state);
+	for (i = 0; i < STATE_BUCKETS_POSITIVE_COUNT(state); i++)
 	{
-		/* positive part has indexes in increasing order */
-		Assert((i == state->nbuckets_negative) || (state->buckets[i-1].index < state->buckets[i].index));
-		Assert(state->buckets[i].count > 0);
-		count += state->buckets[i].count;
+		/* positive part sorted by index in ascending order */
+		Assert((i == 0) || (buckets[i-1].index < buckets[i].index));
+		Assert(buckets[i].count > 0);
+		count += buckets[i].count;
 	}
 
 	Assert(count == state->count);
@@ -309,12 +375,13 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 	Assert(state->npercentiles >= 0);
 	Assert(state->nvalues >= 0);
 
+	/* both can't be set at the same time */
 	Assert(!((state->npercentiles > 0) && (state->nvalues > 0)));
 #endif
 }
 
 /*
- * Estimate requested quantiles from the sketch agg state.
+ * Estimate requested quantiles from the sketch agggregate state.
  */
 static void
 ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
@@ -462,6 +529,7 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 	}
 }
 
+/* comparator by index in ascending order (positive buckets) */
 static int
 bucket_comparator(const void *a, const void *b)
 {
@@ -476,6 +544,7 @@ bucket_comparator(const void *a, const void *b)
 	return 0;
 }
 
+/* comparator by index in descending order (negative buckets) */
 static int
 bucket_comparator_reverse(const void *a, const void *b)
 {
@@ -490,11 +559,26 @@ bucket_comparator_reverse(const void *a, const void *b)
 	return 0;
 }
 
+/*
+ * Add the number of values to the bucket with the given index in either
+ * the positive or negative part of the buckets array.
+ *
+ * The buckets are sorted by index (each part separately), so we can simply
+ * do a binary search. If the bucket already exists, we simply increment the
+ * counter and we're done.
+ *
+ * If the bucket does not exist, we make sure there's enough space for a
+ * new bucket (we may enlarge the array) and append it at the end of the
+ * appropriate part (negative or positive buckets). And then we sort the
+ * buckets, so that it's sorted again.
+ *
+ * XXX It may seem sorting the whole negative/positive array is expensive,
+ * but we expect doing that only very rarely - we should create all the
+ * necessary buckets fairly quickly, and then sorting should not be needed.
+ */
 static void
 ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 count)
 {
-	bucket_t   *buckets;
-	int			nbuckets;
 	bucket_t   *bucket;
 
 	/*
@@ -505,23 +589,21 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	{
 		bucket_t	key;
 
-		buckets = STATE_BUCKETS_POSITIVE(state);
-		nbuckets = STATE_BUCKETS_POSITIVE_COUNT(state);
-
 		key.index = index;
-		bucket = bsearch(&key, buckets, nbuckets, sizeof(bucket_t),
-						 bucket_comparator);
+		bucket = bsearch(&key,
+						 STATE_BUCKETS_POSITIVE(state),
+						 STATE_BUCKETS_POSITIVE_COUNT(state),
+						 sizeof(bucket_t), bucket_comparator);
 	}
 	else	/* negative part */
 	{
 		bucket_t	key;
 
-		buckets = STATE_BUCKETS_NEGATIVE(state);
-		nbuckets = STATE_BUCKETS_NEGATIVE_COUNT(state);
-
 		key.index = index;
-		bucket = bsearch(&key, buckets, nbuckets, sizeof(bucket_t),
-						 bucket_comparator_reverse);
+		bucket = bsearch(&key,
+						 STATE_BUCKETS_NEGATIVE(state),
+						 STATE_BUCKETS_NEGATIVE_COUNT(state),
+						 sizeof(bucket_t), bucket_comparator_reverse);
 	}
 
 	/* If we found a matching bucket, we're done. */
@@ -577,12 +659,13 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	{
 		bucket_t   *buckets = STATE_BUCKETS_POSITIVE(state);
 
+		/* add a new bucket at the end of the positive part */
 		buckets[STATE_BUCKETS_POSITIVE_COUNT(state)].index = index;
 		buckets[STATE_BUCKETS_POSITIVE_COUNT(state)].count = count;
 
 		STATE_BUCKETS_USED(state)++;
 
-		/* now sort the positive buckets by index */
+		/* sort the positive buckets by index (ascending) */
 		pg_qsort(STATE_BUCKETS_POSITIVE(state),
 				 STATE_BUCKETS_POSITIVE_COUNT(state),
 				 sizeof(bucket_t), bucket_comparator);
@@ -591,11 +674,12 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	{
 		bucket_t   *buckets = STATE_BUCKETS_NEGATIVE(state);
 
-		/* move the positive buckets to allow adding negative bucket */
+		/* move the positive buckets to make space for a negative bucket */
 		memmove(STATE_BUCKETS_POSITIVE(state) + 1,
 				STATE_BUCKETS_POSITIVE(state),
 				STATE_BUCKETS_POSITIVE_BYTES(state));
 
+		/* add a new bucket at the end of the negative part */
 		buckets[STATE_BUCKETS_NEGATIVE_COUNT(state)].index = index;
 		buckets[STATE_BUCKETS_NEGATIVE_COUNT(state)].count = count;
 
@@ -609,9 +693,15 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	}
 }
 
-/* add a value to the sketch */
+/*
+ * Add a double value to the sketch aggstate. Check if the value belongs
+ * to the indexable range or zero bucket. If it can be indexed, add it to
+ * the negative or positive part.
+ *
+ * XXX What about values exceeding the maximum indexable values?
+ */
 static void
-ddsketch_add(ddsketch_aggstate_t *state, double v, int64 count)
+ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 {
 	int		index;
 
@@ -619,19 +709,18 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 count)
 
 	state->count += count;
 
-	if (v > state->min_indexable_value)
+	if (value > state->min_indexable_value)
 	{
-		index = ddsketch_map_index(state, v);
+		index = ddsketch_map_index(state, value);
 		ddsketch_store_add(state, true, index, count);
 	}
-	else if (v < -state->min_indexable_value)
+	else if (value < -state->min_indexable_value)
 	{
-		index = ddsketch_map_index(state, -v);
+		index = ddsketch_map_index(state, -value);
 		ddsketch_store_add(state, false, index, count);
 	}
 	else
 	{
-		/* FIXME increment the zero bucket */
 		state->zero_count += count;
 	}
 
@@ -646,8 +735,8 @@ ddsketch_add(ddsketch_aggstate_t *state, double v, int64 count)
  * allowed number of buckets the sketch is allowed to use.
  */
 static ddsketch_t *
-ddsketch_allocate(int64 count, double alpha, int64 zero_count, int maxbuckets,
-				  int nbuckets, int nbuckets_negative)
+ddsketch_allocate(int32 flags, int64 count, double alpha, int64 zero_count,
+				  int maxbuckets, int nbuckets, int nbuckets_negative)
 {
 	Size		len;
 	ddsketch_t *sketch;
@@ -667,13 +756,18 @@ ddsketch_allocate(int64 count, double alpha, int64 zero_count, int maxbuckets,
 
 	sketch = (ddsketch_t *) ptr;
 
-	sketch->flags = 0;
+	sketch->flags = flags;
 	sketch->count = count;
 	sketch->maxbuckets = maxbuckets;
 	sketch->nbuckets = nbuckets;
 	sketch->nbuckets_negative = nbuckets_negative;
 	sketch->alpha = alpha;
 	sketch->zero_count = zero_count;
+
+	/*
+	 * FIXME At this point the number of buckets is set but buckets are not
+	 * copied yet, so it's somewhat broken.
+	 */
 
 	return sketch;
 }
@@ -735,11 +829,13 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
 	/* initialize the bucket store */
 	state->maxbuckets = maxbuckets;
 	state->nbuckets_allocated = nbuckets_allocated;
-	state->nbuckets = 0;
 
 	/* we may need to repalloc this later */
 	state->buckets = palloc(nbuckets_allocated * sizeof(bucket_t));
 
+	state->nbuckets = 0;
+	state->nbuckets_negative = 0;
+	state->count = 0;
 	state->zero_count = 0;
 
 	/* precalculate various parameters used for mapping */
@@ -753,6 +849,9 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
 	return state;
 }
 
+/*
+ * Serialize the aggregate state into the compact ddsketch representation.
+ */
 static ddsketch_t *
 ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 {
@@ -760,7 +859,8 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 
 	AssertCheckDDSketchAggState(state);
 
-	sketch = ddsketch_allocate(state->count,
+	sketch = ddsketch_allocate(SKETCH_DEFAULT_FLAGS,
+							   state->count,
 							   state->alpha,
 							   state->zero_count,
 							   state->maxbuckets,
@@ -788,6 +888,7 @@ check_percentiles(double *percentiles, int npercentiles)
 	}
 }
 
+/* check that the user-specified sketch parameters are valid */
 static void
 check_sketch_parameters(double alpha, int nbuckets)
 {
@@ -1285,8 +1386,10 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	else
 		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
-	/* check that the sketch and aggstate are compatible */
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
 
+	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
 			 state->alpha, sketch->alpha);
@@ -1301,6 +1404,8 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 
 	state->zero_count += sketch->zero_count;
 	state->count += sketch->count;
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(state);
 }
@@ -1368,8 +1473,10 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 	else
 		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
-	/* check that the sketch and aggstate are compatible */
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
 
+	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
 			 state->alpha, sketch->alpha);
@@ -1384,6 +1491,8 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 
 	state->zero_count += sketch->zero_count;
 	state->count += sketch->count;
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(state);
 }
@@ -1808,6 +1917,7 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 	else
 		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
+	AssertCheckDDSketch(sketch);
 	AssertCheckDDSketchAggState(state);
 
 	/* check that the sketch and aggstate are compatible */
@@ -2070,6 +2180,8 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 {
 	ddsketch_aggstate_t *copy;
 
+	AssertCheckDDSketchAggState(state);
+
 	copy = ddsketch_aggstate_allocate(state->npercentiles, state->nvalues,
 									  state->alpha,
 									  state->maxbuckets,
@@ -2086,6 +2198,8 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 			   sizeof(double) * state->npercentiles);
 
 	memcpy(STATE_BUCKETS(copy), STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
+
+	AssertCheckDDSketchAggState(copy);
 
 	return copy;
 }
@@ -2149,6 +2263,8 @@ static ddsketch_aggstate_t *
 ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 {
 	ddsketch_aggstate_t *state;
+
+	AssertCheckDDSketch(sketch);
 
 	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
 									   sketch->maxbuckets,
@@ -2328,11 +2444,12 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 
 	/* parse the first ddsketch (we'll merge the other one into this) */
 	state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
-	AssertCheckDDSketchAggState(state);
 
 	/* parse the second ddsketch */
 	sketch = PG_GETARG_DDSKETCH(1);
+
 	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
 
 	/* copy data from sketch to aggstate */
 	ddsketch_merge_buckets(state, false,
@@ -2416,11 +2533,8 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("zero_count value for the ddsketch must not exceed count")));
 
-	sketch = ddsketch_allocate(count, alpha, zero_count,
+	sketch = ddsketch_allocate(flags, count, alpha, zero_count,
 							   maxbuckets, nbuckets, nbuckets_negative);
-
-	sketch->flags = flags;
-	sketch->count = 0;
 
 	ptr = str + header_length;
 
@@ -2445,7 +2559,6 @@ ddsketch_in(PG_FUNCTION_ARGS)
 
 		sketch->buckets[i].index = index;
 		sketch->buckets[i].count = count;
-		sketch->count += count;
 
 		/* skip to the end of the centroid */
 		ptr = strchr(ptr, ')') + 1;
@@ -2508,16 +2621,19 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	nbuckets_negative = pq_getmsgint(buf, sizeof(int32));
 	nbuckets_positive = pq_getmsgint(buf, sizeof(int32));
 
-	sketch = ddsketch_allocate(count, alpha, zero_count, maxbuckets,
+	sketch = ddsketch_allocate(flags, count, alpha, zero_count, maxbuckets,
 							   nbuckets_negative, nbuckets_positive);
-
-	sketch->flags = flags;
 
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
+		if (i >= sketch->nbuckets)
+			elog(ERROR, "too many buckets parsed");
+
 		sketch->buckets[i].index = pq_getmsgint(buf, sizeof(int32));
 		sketch->buckets[i].count = pq_getmsgint64(buf);
 	}
+
+	AssertCheckDDSketch(sketch);
 
 	PG_RETURN_POINTER(sketch);
 }
@@ -2528,6 +2644,8 @@ ddsketch_send(PG_FUNCTION_ARGS)
 	ddsketch_t  *sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
 	StringInfoData buf;
 	int			i;
+
+	AssertCheckDDSketch(sketch);
 
 	pq_begintypsend(&buf);
 
