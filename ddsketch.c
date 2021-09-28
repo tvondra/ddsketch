@@ -445,7 +445,6 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		Assert(count >= goal);
 
 		result[i] = ddsketch_map_value(state, index);
-		// 2 * pow(state->gamma, index) / (state->gamma + 1);
 	}
 }
 
@@ -453,6 +452,18 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
  * Estimate inverse of quantile given a value from the sketch agg state.
  *
  * Essentially an inverse to ddsketch_compute_quantiles.
+ *
+ * XXX Unlike ddsketch_compute_quantiles, there's no guarantee regarding
+ * errors guarantees - the relative error guarantees are due to sizing
+ * the bucket ranges [min,max] in a smart way, so that (max-min)/min is
+ * less than the desired error. But we have no control over how many
+ * values fall into the bucket, which is what matter for quantiles_of.
+ * In extreme case all the values may be in a single bucket, and we don't
+ * know if all are below/above the parameter, or what. The best thing
+ * we can do is assuming it's in the middle of the bucket.
+ *
+ * XXX We might also calculate the min/max percentiles, and return a range
+ * of possible quantiles (a bit like confidence interval).
  */
 static void
 ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
@@ -490,7 +501,6 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 				if (buckets[j].index < index)
 					count += buckets[j].count;
 				else
-					/* FIXME should this add just half the bucket? */
 					count += buckets[j].count / 2;
 			}
 		}
@@ -528,7 +538,7 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 			count += state->zero_count;
 		}
 
-		result[i] = count / (double) state->count;
+		result[i] = count / ((double) state->count - 1);
 	}
 }
 
@@ -2060,7 +2070,7 @@ ddsketch_array_percentiles_of(PG_FUNCTION_ARGS)
 	MemoryContext aggcontext;
 
 	ddsketch_aggstate_t *state;
-
+elog(WARNING, "ddsketch_array_percentiles_of");
 	/* cannot be called directly because of internal-type argument */
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 		elog(ERROR, "ddsketch_array_percentiles_of called in non-aggregate context");
