@@ -1,5 +1,14 @@
 /*
- * ddsketch - implementation of ddsketch for PostgreSQL.
+ * ddsketch - implementation of ddsketch for PostgreSQL
+ *
+ * DDSketch: A fast and fully-mergeable quantile sketch with relative-error
+ * guarantees; Charles Masson, Jee E. Rim, Homin K. Lee;
+ * PVLDB, 12(12): 2195-2205, 2019; DOI 10.14778/3352063.3352135
+ * https://arxiv.org/abs/1908.10693
+ *
+ * UDDSketch: Accurate Tracking of Quantiles in Data Streams; Italo
+ * Epicoco, Catiuscia Melle, Massimo Cafaro, Marco Pulimeno, Giuseppe
+ * Morleo; https://arxiv.org/abs/2004.08604
  *
  * Copyright (C) Tomas Vondra, 2021
  */
