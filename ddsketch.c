@@ -156,7 +156,6 @@ typedef struct ddsketch_aggstate_t {
 	int32		nbuckets;		/* number of buckets (used) */
 	int32		nbuckets_negative;	/* number of buckets in negative part */
 	int32		nbuckets_allocated;	/* number of buckets (allocated) */
-	bucket_t   *buckets;		/* buckets (negative and positive) */
 
 	/* array of requested percentiles and values */
 	int			npercentiles;	/* number of percentiles */
@@ -165,6 +164,7 @@ typedef struct ddsketch_aggstate_t {
 	/* variable-length fields at the end */
 	double	   *percentiles;	/* array of percentiles (if any) */
 	double	   *values;			/* array of values (if any) */
+	bucket_t   *buckets;		/* buckets (negative and positive) */
 } ddsketch_aggstate_t;
 
 #define STATE_BUCKETS_FULL(state)	\
@@ -230,6 +230,7 @@ PG_FUNCTION_INFO_V1(ddsketch_recv);
 PG_FUNCTION_INFO_V1(ddsketch_count);
 
 PG_FUNCTION_INFO_V1(ddsketch_add_double_increment);
+PG_FUNCTION_INFO_V1(ddsketch_add_double_count_increment);
 PG_FUNCTION_INFO_V1(ddsketch_add_double_array_increment);
 PG_FUNCTION_INFO_V1(ddsketch_union_double_increment);
 
@@ -266,6 +267,7 @@ Datum ddsketch_recv(PG_FUNCTION_ARGS);
 Datum ddsketch_count(PG_FUNCTION_ARGS);
 
 Datum ddsketch_add_double_increment(PG_FUNCTION_ARGS);
+Datum ddsketch_add_double_count_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_union_double_increment(PG_FUNCTION_ARGS);
 
@@ -372,7 +374,7 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 		count += buckets[i].count;
 	}
 
-	Assert(count == state->count);
+	// Assert(count == state->count);
 
 	Assert(state->npercentiles >= 0);
 	Assert(state->nvalues >= 0);
@@ -464,6 +466,9 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
  *
  * XXX We might also calculate the min/max percentiles, and return a range
  * of possible quantiles (a bit like confidence interval).
+ *
+ * XXX Maybe instead of using half the bucket, we could use linear
+ * approximation between the bucket min/max.
  */
 static void
 ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
@@ -1164,8 +1169,8 @@ ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 	/* if there's no ddsketch aggstate allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
+		double	alpha = PG_GETARG_FLOAT8(3);
+		int32	maxbuckets = PG_GETARG_INT32(4);
 
 		double *values = NULL;
 		int		nvalues = 0;
@@ -1175,10 +1180,10 @@ ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
-		if (PG_NARGS() >= 5)
+		if (PG_NARGS() >= 6)
 		{
 			values = (double *) palloc(sizeof(double));
-			values[0] = PG_GETARG_FLOAT8(4);
+			values[0] = PG_GETARG_FLOAT8(5);
 			nvalues = 1;
 		}
 
@@ -1254,7 +1259,7 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 
 		/* copy the existing negative buckets */
 		memcpy(b + nbuckets, STATE_BUCKETS_NEGATIVE(state),
-			   STATE_BUCKETS_NEGATIVE_COUNT(state));
+			   STATE_BUCKETS_NEGATIVE_BYTES(state));
 
 		/* sort the combined array (in reverse, as it's negative) */
 		pg_qsort(b, n, sizeof(bucket_t), bucket_comparator_reverse);
@@ -2070,7 +2075,7 @@ ddsketch_array_percentiles_of(PG_FUNCTION_ARGS)
 	MemoryContext aggcontext;
 
 	ddsketch_aggstate_t *state;
-elog(WARNING, "ddsketch_array_percentiles_of");
+
 	/* cannot be called directly because of internal-type argument */
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 		elog(ERROR, "ddsketch_array_percentiles_of called in non-aggregate context");
@@ -2136,10 +2141,13 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 {
 	bytea  *v = (bytea *) PG_GETARG_POINTER(0);
 	char   *ptr = VARDATA_ANY(v);
+	char   *endptr PG_USED_FOR_ASSERTS_ONLY;
 	ddsketch_aggstate_t	tmp;
 	ddsketch_aggstate_t *state;
 	double			   *percentiles = NULL;
 	double			   *values = NULL;
+
+	endptr = ptr + VARSIZE_ANY_EXHDR(v);
 
 	/* copy aggstate header into a local variable */
 	memcpy(&tmp, ptr, offsetof(ddsketch_aggstate_t, percentiles));
@@ -2184,6 +2192,8 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 	/* copy the buckets back */
 	memcpy(STATE_BUCKETS(state), ptr, STATE_BUCKETS_BYTES(state));
 	ptr += STATE_BUCKETS_BYTES(state);
+
+	Assert(ptr == endptr);
 
 	PG_RETURN_POINTER(state);
 }
@@ -2242,6 +2252,8 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 		src = ddsketch_copy(src);
 		MemoryContextSwitchTo(oldcontext);
+
+		AssertCheckDDSketchAggState(src);
 
 		PG_RETURN_POINTER(src);
 	}
@@ -2356,6 +2368,79 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 	AssertCheckDDSketchAggState(state);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
+
+	AssertCheckDDSketchAggState(state);
+
+	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+}
+
+/*
+ * Add a single value to the ddsketch. This is not very efficient, as it has
+ * to deserialize the ddsketch into the in-memory aggstate representation
+ * and serialize it back for each call, but it's convenient and acceptable
+ * for some use cases.
+ *
+ * When efficiency is important, it may be possible to use the batch variant
+ * with first aggregating the updates into a ddsketch, and then merge that
+ * into an existing ddsketch in one step using ddsketch_union_double_increment
+ *
+ * This is similar to hll_add, while the "union" is more like hll_union.
+ */
+Datum
+ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
+{
+	int64				count;
+	ddsketch_aggstate_t *state;
+
+	/*
+	 * We want to skip NULL values altogether - we return either the existing
+	 * ddsketch (if it already exists) or NULL.
+	 */
+	if (PG_ARGISNULL(1))
+	{
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+
+		/* if there already is a state accumulated, don't forget it */
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+	}
+
+	/* if there's no aggstate allocated, create it now */
+	if (PG_ARGISNULL(0))
+	{
+		double	alpha;
+		int32	maxbuckets;
+
+		/*
+		 * We don't require compression, but only when there is an existing
+		 * ddsketch value. Make sure the value was supplied.
+		 */
+		if (PG_ARGISNULL(3))
+			elog(ERROR, "alpha value not supplied, but ddsketch is NULL");
+
+		if (PG_ARGISNULL(4))
+			elog(ERROR, "nbuckets value not supplied, but ddsketch is NULL");
+
+		alpha = PG_GETARG_FLOAT8(3);
+		maxbuckets = PG_GETARG_INT32(4);
+
+		check_sketch_parameters(alpha, maxbuckets);
+
+		state = ddsketch_aggstate_allocate(0, 0, alpha,
+										   maxbuckets,
+										   MIN_SKETCH_BUCKETS);
+	}
+	else
+		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+
+	if (PG_ARGISNULL(2))
+		count = 1;
+	else
+		count = PG_GETARG_INT64(2);
+
+	AssertCheckDDSketchAggState(state);
+
+	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
 	AssertCheckDDSketchAggState(state);
 
@@ -2601,12 +2686,7 @@ ddsketch_out(PG_FUNCTION_ARGS)
 					 sketch->maxbuckets, sketch->nbuckets, sketch->nbuckets_negative);
 
 	for (i = 0; i < sketch->nbuckets; i++)
-	{
-		if (sketch->buckets[i].count == 0)
-			continue;
-
 		appendStringInfo(&str, " (%d, " INT64_FORMAT ")", sketch->buckets[i].index, sketch->buckets[i].count);
-	}
 
 	PG_RETURN_CSTRING(str.data);
 }

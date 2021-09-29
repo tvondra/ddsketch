@@ -2151,6 +2151,31 @@ FROM (
          pg_percentile
 ) foo;
 
+-- verify we can store ddsketch in a summary table (individual percentiles)
+TRUNCATE intermediate_ddsketch;
+
+WITH data AS (SELECT row_number() OVER () AS i, 100 * pow(z, 4) AS x FROM random_normal(100000) s(z))
+INSERT INTO intermediate_ddsketch
+SELECT
+    i % 10 AS grouping,
+    ddsketch(x, 0.05, 1024) AS summary
+FROM data
+GROUP BY i % 10;
+
+WITH data AS (SELECT 100 * pow(z, 4) AS x FROM random_normal(100000) s(z))
+SELECT
+    p,
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
+FROM (
+    SELECT
+        foo.p AS p,
+        (SELECT ddsketch_percentile(summary, foo.p) FROM intermediate_ddsketch) AS a,
+        (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY x) AS b FROM data) AS b
+    FROM
+         (SELECT unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) p) foo
+) bar;
+
 -- verify 'extreme' percentiles for the dataset would not read out of bounds on the centroids
 WITH data AS (SELECT x FROM generate_series(1,10) AS x)
 SELECT
@@ -2313,6 +2338,24 @@ END$$;
 WITH x AS (SELECT i FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.i, 0.05, 1024)::text FROM x) AS match;
 
+-- now do the same thing, but add values with a count
+TRUNCATE t;
+INSERT INTO t VALUES (NULL);
+
+-- check this produces the same result building the ddsketch at once
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT i AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text)) LOOP
+        UPDATE t SET d = ddsketch_add(d, r.v, r.c, 0.05, 1024);
+    END LOOP;
+END$$;
+
+-- compare the results, but do force a compaction of the incremental result
+WITH x AS (SELECT i::double precision AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.v, x.c, 0.05, 1024)::text FROM x) AS match;
+
 -- now try the same thing with bulk incremental update (using arrays)
 TRUNCATE t;
 INSERT INTO t VALUES (NULL);
@@ -2346,3 +2389,164 @@ END$$;
 -- compare the results, but do force a compaction of the incremental result
 WITH x AS (SELECT a, ddsketch(i, 0.05, 1024) AS d FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a)
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d)::text FROM x);
+
+-- percentile_of with an array of values
+SELECT ddsketch_percentile_of(i / 100.0, 0.05, 1024, ARRAY[-100.0, -75.0, -50.0, -25.0, 0.0, 25.0, 50.0, 75.0, 100.0])
+FROM generate_series(-10000, 10000) s(i);
+
+-- percentile_of and individual values
+SELECT
+    f,
+    (SELECT ddsketch_percentile_of(i / 100.0, 0.05, 1024, f) FROM generate_series(-10000, 10000) s(i))
+FROM unnest(ARRAY[-100.0, -75.0, -50.0, -25.0, 0.0, 25.0, 50.0, 75.0, 100.0]) AS f;
+
+-- <value,count> API with percentile_of and individual values
+SELECT
+    f,
+    (SELECT ddsketch_percentile_of(i / 100.0, 1 + abs(mod(i,13)), 0.05, 1024, f) FROM generate_series(-10000, 10000) s(i))
+FROM unnest(ARRAY[-100.0, -75.0, -50.0, -25.0, 0.0, 25.0, 50.0, 75.0, 100.0]) AS f;
+
+-- <value,count> API with percentile_of and an array
+SELECT ddsketch_percentile_of(i / 100.0, 1 + abs(mod(i,13)), 0.05, 1024, ARRAY[-100.0, -75.0, -50.0, -25.0, 0.0, 25.0, 50.0, 75.0, 100.0])
+FROM generate_series(-10000, 10000) s(i);
+
+-- hypothetical-set aggregates
+--
+-- there's no guarantee for relative-errors of hypothetical-aggregates,
+-- but for uniform distribution it's fairly close to the relative error
+-- the ddsketch was defined with
+WITH
+  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    foo.v,
+    (SELECT ddsketch_percentile_of(sketch.s, foo.v) FROM sketch) a,
+    (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
+  FROM
+    (SELECT i * 10.0 AS v FROM generate_series(1,99) s(i)) foo
+) bar;
+
+WITH
+  data AS (SELECT mod(i,10) as x, i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY data.x)
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    foo.v,
+    (SELECT ddsketch_percentile_of(sketches.s, foo.v) FROM sketches) a,
+    (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
+  FROM
+    (SELECT i * 10.0 AS v FROM generate_series(1,99) s(i)) foo
+) bar;
+
+WITH
+  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data),
+  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(sketch.s, vals.v) AS v FROM sketch, vals),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+
+WITH
+  data AS (SELECT mod(i,10) AS x, i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY x),
+  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(sketches.s, vals.v) AS v FROM sketches, vals),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+
+-- now the same thing, but pass the values as a single array
+WITH
+  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(data.v, 0.05, 1024, vals.v) AS v FROM data, vals),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+
+WITH
+  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(data.v, 0.05, 1024, vals.v) AS v FROM data, vals),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+
+-- WITH
+--   data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+--   sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
+-- SELECT
+--   p,
+--   check_relative_error(a, b, 0.05) AS check_error,
+--   print_relative_error(a, b, 0.05) AS error_info
+-- FROM (
+--   SELECT
+--     foo.p,
+--     (SELECT ddsketch_percentile(sketch.s, foo.p) FROM sketch) a,
+--     (SELECT percentile_disc(foo.p) WITHIN GROUP (ORDER BY v) FROM data) b
+--   FROM
+--     (SELECT i / 100.0 AS p FROM generate_series(1,99) s(i)) foo
+-- ) bar;
+
+CREATE TABLE src_data (v double precision);
+INSERT INTO src_data SELECT z FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
+ANALYZE src_data;
+
+-- with parallelism
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+
+-- without  parallelism
+SET max_parallel_workers_per_gather = 0;
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch(v, 0.05, 1024) FROM src_data;
