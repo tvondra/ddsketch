@@ -116,6 +116,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -----------------------------------------------------------
+-- parameter validation
+-----------------------------------------------------------
+
+-- invalid percentile value
+SELECT ddsketch_percentile(i / 1.0, 0.01, 1024, ARRAY[0.1, -0.1]) FROM generate_series(1,100000) s(i);
+
+-- alpha too low
+SELECT ddsketch_percentile(i / 1.0, 0.00009, 1024, 0.5) FROM generate_series(1,100000) s(i);
+
+-- alpha too high
+SELECT ddsketch_percentile(i / 1.0, 0.11, 1024, 0.5) FROM generate_series(1,100000) s(i);
+
+-- fewer than minimum number of buckets
+SELECT ddsketch_percentile(i / 1.0, 0.01, 15, 0.5) FROM generate_series(1,100000) s(i);
+
+-- more than maximum number of buckets
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32769, 0.5) FROM generate_series(1,100000) s(i);
+
+-- too many buckets needed
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1,100000) s(i);
+
+-----------------------------------------------------------
 -- nice data set with ordered (asc) / evenly-spaced data --
 -----------------------------------------------------------
 
@@ -2546,7 +2568,231 @@ ANALYZE src_data;
 EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch_percentile(v, 0.05, 1024, 0.9) FROM src_data;
+
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch_percentile_of(v, 0.05, 1024, 0.9) FROM src_data;
+
 -- without  parallelism
 SET max_parallel_workers_per_gather = 0;
 EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+
+-- NULL handling
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile(data.v, 0.01, 1024, 0.95) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, 0.95) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, 0.95) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     perc AS (SELECT array_agg(i/100) AS p FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile(data.v, 0.01, 1024, perc.p) FROM data, perc;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     perc AS (SELECT array_agg(i/100) AS p FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, perc.p) FROM data, perc;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     perc AS (SELECT array_agg(i/100) AS p FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, perc.p) FROM data, perc;
+
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+SELECT ddsketch_percentile(data.v, 0.01, 1024, 0.95) FROM data;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, 0.95) FROM data;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+     perc AS (SELECT array_agg(i/100) AS p FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile(data.v, 0.01, 1024, perc.p) FROM data, perc;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+     perc AS (SELECT array_agg(i/100) AS p FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, perc.p) FROM data, perc;
+
+
+-- percentile-of values
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile_of(data.v, 0.01, 1024, 95.0) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, 95.0) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+SELECT ddsketch_percentile_of(data.v, NULL, 0.01, 1024, 95.0) FROM data;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     vals AS (SELECT array_agg(i) AS v FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile_of(data.v, 0.01, 1024, vals.v) FROM data, vals;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     vals AS (SELECT array_agg(i) AS v FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) FROM data, vals;
+
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+     vals AS (SELECT array_agg(i) AS v FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile_of(data.v, NULL, 0.01, 1024, vals.v) FROM data, vals;
+
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+SELECT ddsketch_percentile_of(data.v, 0.01, 1024, 95) FROM data;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, 95) FROM data;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+     vals AS (SELECT array_agg(i) AS v FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile_of(data.v, 0.01, 1024, vals.v) FROM data, vals;
+
+WITH data AS (SELECT NULL AS v, 0 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+     vals AS (SELECT array_agg(i) AS v FROM generate_series(0,100) AS s(i))
+SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) FROM data, vals;
+
+-- sketches
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+-- percentile
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, 0.5) FROM sketches;
+
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, ARRAY[0.9, 0.95, 0.99]) FROM sketches;
+
+-- percentile_of
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, 95) FROM sketches;
+
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, ARRAY[90, 95, 99]) FROM sketches;
+
+
+-- sketches
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+-- percentile
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, 0.5) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, ARRAY[0.9, 0.95, 0.99]) FROM sketches;
+
+-- percentile_of
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, 95) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, ARRAY[90, 95, 99]) FROM sketches;
+
+
+-- sketches / NULL handling
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch(sketches.d) FROM sketches;
+
+-- percentile
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, 0.5) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile(sketches.d, ARRAY[0.9, 0.95, 0.99]) FROM sketches;
+
+-- percentile_of
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, 95) FROM sketches;
+
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 100.0) END) AS v FROM generate_series(1,10000) s(i))),
+     sketches AS (SELECT NULL AS d UNION ALL SELECT ddsketch(data.v, 2, 0.05, 1024) AS d FROM data GROUP BY c)
+SELECT ddsketch_percentile_of(sketches.d, ARRAY[90, 95, 99]) FROM sketches;
+
+
+
+SELECT ddsketch_percentile(NULL::ddsketch, 0.9);
+SELECT ddsketch_percentile(NULL::ddsketch, ARRAY[0.5, 0.9]);
+SELECT ddsketch_percentile_of(NULL::ddsketch, 0.9);
+SELECT ddsketch_percentile_of(NULL::ddsketch, ARRAY[0.1, 0.9]);
+
+SELECT ddsketch(NULL::ddsketch) FROM generate_series(1,10);
+
+-- can't merge sketches with different alpha values
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+    UNION ALL
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch(sketches.s) FROM sketches;
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+    UNION ALL
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_percentile(sketches.s, 0.9) FROM sketches;
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+    UNION ALL
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_percentile(sketches.s, ARRAY[0.95, 0.99]) FROM sketches;
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+    UNION ALL
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_percentile_of(sketches.s, 95) FROM sketches;
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+    UNION ALL
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_percentile_of(sketches.s, ARRAY[95, 99]) FROM sketches;
+
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_union(sketches.s, NULL::ddsketch) FROM sketches;
+
+WITH sketches AS (
+    SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
+)
+SELECT ddsketch_union(NULL::ddsketch, sketches.s) FROM sketches;
+
+SELECT ddsketch_union(NULL::ddsketch, NULL::ddsketch);
