@@ -12,7 +12,16 @@ accumulation of quantiles, as described in a paper
     Proceedings of the VLDB Endowment, Vol. 12, No. 12, ISSN 2150-8097
     DOI: https://doi.org/10.14778/3352063.3352135
 
-The algorithm is very friendly to parallel programs, fully mergeable.
+The algorithm is very friendly to parallel programs, fully mergeable, etc.
+A second paper published in 2020 introduces a variant of the sketch, using
+a more elaborate procedure when collapsing buckets
+
+    UDDSketch: Accurate Tracking of Quantiles in Data Streams; Italo
+    Epicoco, Catiuscia Melle, Massimo Cafaro, Marco Pulimeno, Giuseppe
+    Morleo; https://arxiv.org/abs/2004.08604
+
+This allows providing formal accuracy guarantees even for sketches with
+collapsed buckets, which is not possible for ddsketch.
 
 
 ## Basic usage
