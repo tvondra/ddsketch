@@ -73,6 +73,63 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION relative_error(estimated_value double precision, actual_value double precision) RETURNS double precision AS $$
+DECLARE
+    divisor double precision;
+BEGIN
+    -- if both values are 0, then the relative error is 0
+    if (abs(actual_value) = 0) and (abs(estimated_value) = 0) then
+        return 0.0;
+    end if;
+
+    -- use actual value az divisor, but if it's 0 then use the estimate
+    -- this allows us to calculate the error without division by zero
+    -- (we already know both can't be zero)
+    divisor := abs(actual_value);
+    if divisor = 0 then
+      divisor := abs(estimated_value);
+    end if;
+
+    return abs(estimated_value - actual_value) / divisor;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION check_relative_error(estimated_value double precision, actual_value double precision, allowed_error double precision) RETURNS bool AS $$
+DECLARE
+    err double precision;
+BEGIN
+
+    IF ((estimated_value < 0) AND (actual_value > 0)) OR ((estimated_value > 0) AND (actual_value < 0)) THEN
+        RETURN NULL;
+    END IF;
+
+    err := relative_error(estimated_value, actual_value);
+
+    RETURN (err < allowed_error);
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION print_relative_error(estimated_value double precision, actual_value double precision, allowed_error double precision) RETURNS text AS $$
+DECLARE
+    err double precision;
+BEGIN
+
+    IF ((estimated_value < 0) AND (actual_value > 0)) OR ((estimated_value > 0) AND (actual_value < 0)) THEN
+        RETURN format('estimate = %s, actual = %s', estimated_value, actual_value);
+    END IF;
+
+    err := relative_error(estimated_value, actual_value);
+
+    IF err < allowed_error THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN format('estimate = %s, actual = %s, error = %s', estimated_value, actual_value, err);
+
+END;
+$$ LANGUAGE plpgsql;
+
 -----------------------------------------------------------
 -- parameter validation
 -----------------------------------------------------------
@@ -103,8 +160,8 @@ SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1,10000)
 WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
 SELECT
     p,
-    (abs(a - b) / 1000000::double precision) < 0.05,
-    (CASE WHEN (abs(a - b) / 1000000::double precision) < 0.05 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -132,8 +189,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) / 1000000::double precision END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -161,8 +218,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -194,8 +251,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -223,8 +280,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -252,8 +309,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -285,8 +342,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -314,8 +371,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -343,8 +400,8 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -376,8 +433,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -405,8 +462,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -434,8 +491,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -467,8 +524,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -496,8 +553,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -525,8 +582,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -558,8 +615,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -587,8 +644,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -616,8 +673,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -649,8 +706,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -678,8 +735,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.005, -- arbitrary threshold of 0.5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.005 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -707,8 +764,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -741,8 +798,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -770,8 +827,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -799,8 +856,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -832,8 +889,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -861,8 +918,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -890,8 +947,8 @@ SELECT * FROM (
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.001 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -923,8 +980,8 @@ WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.05, -- arbitrary threshold of 5%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.05 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -950,8 +1007,8 @@ WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
      pg_percentile AS (SELECT percentile_cont(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.01 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -965,13 +1022,13 @@ FROM (
 WITH data AS (SELECT x FROM generate_series(1,10) AS x)
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.1, -- arbitrary threshold of 10% given the small dataset and extreme percentiles it is not very accurate
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.055) AS check_error,
+    print_relative_error(a, b, 0.055) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.99])) AS a,
-        unnest(percentile_cont(ARRAY[0.01, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(percentile_disc(ARRAY[0.01, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
 
@@ -1057,8 +1114,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.1, -- arbitrary threshold of 10%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.05) AS check_error,
+    print_relative_error(a, b, 0.05) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1075,8 +1132,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.01, -- arbitrary threshold of 1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.01) AS check_error,
+    print_relative_error(a, b, 0.01) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
@@ -1093,8 +1150,8 @@ WITH
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
-    abs(a - b) / 1000000::double precision < 0.001, -- arbitrary threshold of 0.1%
-    (CASE WHEN abs(a - b) / 1000000::double precision < 0.1 THEN NULL ELSE (a - b) END) AS err
+    check_relative_error(a, b, 0.001) AS check_error,
+    print_relative_error(a, b, 0.001) AS error_info
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
