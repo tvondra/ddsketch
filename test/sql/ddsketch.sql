@@ -1179,6 +1179,26 @@ END$$;
 WITH x AS (SELECT i FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.i, 0.05, 1024)::text FROM x) AS match;
 
+
+-- now do the same thing, but add values with a count
+TRUNCATE t;
+INSERT INTO t VALUES (NULL);
+
+-- check this produces the same result building the ddsketch at once
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT i AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text)) LOOP
+        UPDATE t SET d = ddsketch_add(d, r.v, r.c, 0.05, 1024);
+    END LOOP;
+END$$;
+
+-- compare the results
+WITH x AS (SELECT i::double precision AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.v, x.c, 0.05, 1024)::text FROM x) AS match;
+
+
 -- now try the same thing with bulk incremental update (using arrays)
 TRUNCATE t;
 INSERT INTO t VALUES (NULL);

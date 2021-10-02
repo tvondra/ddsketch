@@ -114,6 +114,7 @@ PG_FUNCTION_INFO_V1(ddsketch_recv);
 PG_FUNCTION_INFO_V1(ddsketch_count);
 
 PG_FUNCTION_INFO_V1(ddsketch_add_double_increment);
+PG_FUNCTION_INFO_V1(ddsketch_add_double_count_increment);
 PG_FUNCTION_INFO_V1(ddsketch_add_double_array_increment);
 PG_FUNCTION_INFO_V1(ddsketch_union_double_increment);
 
@@ -150,6 +151,7 @@ Datum ddsketch_recv(PG_FUNCTION_ARGS);
 Datum ddsketch_count(PG_FUNCTION_ARGS);
 
 Datum ddsketch_add_double_increment(PG_FUNCTION_ARGS);
+Datum ddsketch_add_double_count_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_union_double_increment(PG_FUNCTION_ARGS);
 
@@ -1721,6 +1723,79 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
+
+	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+}
+
+/*
+ * Add a single value to the ddsketch. This is not very efficient, as it has
+ * to deserialize the ddsketch into the in-memory aggstate representation
+ * and serialize it back for each call, but it's convenient and acceptable
+ * for some use cases.
+ *
+ * When efficiency is important, it may be possible to use the batch variant
+ * with first aggregating the updates into a ddsketch, and then merge that
+ * into an existing ddsketch in one step using ddsketch_union_double_increment
+ *
+ * This is similar to hll_add, while the "union" is more like hll_union.
+ */
+Datum
+ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
+{
+	int64				count;
+	ddsketch_aggstate_t *state;
+
+	/*
+	 * We want to skip NULL values altogether - we return either the existing
+	 * ddsketch (if it already exists) or NULL.
+	 */
+	if (PG_ARGISNULL(1))
+	{
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+
+		/* if there already is a state accumulated, don't forget it */
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+	}
+
+	/* if there's no aggstate allocated, create it now */
+	if (PG_ARGISNULL(0))
+	{
+		double	alpha;
+		int32	maxbuckets;
+
+		/*
+		 * We don't require compression, but only when there is an existing
+		 * ddsketch value. Make sure the value was supplied.
+		 */
+		if (PG_ARGISNULL(3))
+			elog(ERROR, "alpha value not supplied, but ddsketch is NULL");
+
+		if (PG_ARGISNULL(4))
+			elog(ERROR, "nbuckets value not supplied, but ddsketch is NULL");
+
+		alpha = PG_GETARG_FLOAT8(3);
+		maxbuckets = PG_GETARG_INT32(4);
+
+		check_sketch_parameters(alpha, maxbuckets);
+
+		state = ddsketch_aggstate_allocate(0, 0, alpha,
+										   maxbuckets,
+										   MIN_SKETCH_BUCKETS);
+	}
+	else
+		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+
+	if (PG_ARGISNULL(2))
+		count = 1;
+	else
+		count = PG_GETARG_INT64(2);
+
+	AssertCheckDDSketchAggState(state);
+
+	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
+
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
 }

@@ -306,6 +306,11 @@ CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_element double prec
     AS 'ddsketch', 'ddsketch_add_double_increment'
     LANGUAGE C IMMUTABLE;
 
+CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_element double precision, p_count bigint, p_alpha double precision, p_buckets int = NULL)
+    RETURNS ddsketch
+    AS 'ddsketch', 'ddsketch_add_double_count_increment'
+    LANGUAGE C IMMUTABLE;
+
 CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_elements double precision[], p_alpha double precision, p_buckets int = NULL)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_add_double_array_increment'
