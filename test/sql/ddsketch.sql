@@ -338,7 +338,7 @@ SELECT * FROM (
 -- nice data set with random / evenly-spaced data --
 ----------------------------------------------------
 
--- 10 centroids (tiny)
+-- alpha 0.05
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
@@ -367,7 +367,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
@@ -396,7 +396,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- alpha 0.001
 WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
@@ -429,7 +429,7 @@ SELECT * FROM (
 -- nice data set with random data (uniform) --
 ----------------------------------------------
 
--- 10 centroids (tiny)
+-- alpha 0.05
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
@@ -458,7 +458,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
@@ -487,7 +487,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- alpha 0.001
 WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
 SELECT
     p,
@@ -520,7 +520,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed sqrt) --
 --------------------------------------------------
 
--- 10 centroids (tiny)
+-- alpha 0.05
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -549,7 +549,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -578,7 +578,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- alpha 0.001
 WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -611,7 +611,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed sqrt+sqrt) --
 -------------------------------------------------------
 
--- 10 centroids (tiny)
+-- alpha 0.05
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -640,7 +640,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -669,7 +669,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- alpha 0.001
 WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -702,7 +702,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed pow) --
 -------------------------------------------------
 
--- 10 centroids (tiny)
+-- alpha 0.05
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -731,7 +731,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -760,7 +760,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- 0.001 alpha
 WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -794,7 +794,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed pow+pow) --
 -----------------------------------------------------
 
--- 10 centroids (tiny)
+-- 0.05 alpha
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -823,7 +823,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- alpha 0.01
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -852,7 +852,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- 0.001 alpha
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
 SELECT
     p,
@@ -885,7 +885,7 @@ SELECT * FROM (
 -- nice data set with random data (normal distribution) --
 ----------------------------------------------------------
 
--- 10 centroids (tiny)
+-- 0.05 alpha
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
@@ -914,7 +914,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 100 centroids (okay-ish)
+-- 0.01 alpha
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
@@ -943,7 +943,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
--- 1000 centroids (very accurate)
+-- 0.001 alpha
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
 SELECT
     p,
@@ -973,7 +973,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- some basic tests to verify transforming from and to text work
--- 10 centroids (tiny)
+-- 0.05 alpha
 WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
@@ -1018,7 +1018,7 @@ FROM (
          pg_percentile
 ) foo;
 
--- verify 'extreme' percentiles for the dataset would not read out of bounds on the centroids
+-- verify 'extreme' percentiles for the dataset would not read out of bounds
 WITH data AS (SELECT x FROM generate_series(1,10) AS x)
 SELECT
     p,
@@ -1033,7 +1033,6 @@ FROM (
 ) foo;
 
 -- check that the computed percentiles are perfectly correlated (don't decrease for higher p values)
--- first test on a tiny ddsketch with all centroids having count = 1
 WITH
 -- percentiles to compute
 perc AS (SELECT array_agg((i / 100.0)::double precision) AS percentiles FROM generate_series(1,99) s(i)),
@@ -1108,7 +1107,7 @@ from (values
 -- nice data set with random data (uniform) --
 ----------------------------------------------
 
--- 10 centroids (tiny)
+-- 0.05 alpha
 WITH
  data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
@@ -1126,7 +1125,7 @@ FROM (
        (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
--- 100 centroids (okay-ish)
+-- 0.01 alpha
 WITH
  data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
@@ -1144,7 +1143,7 @@ FROM (
        (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
--- 1000 centroids (very accurate)
+-- 0.001 alpha
 WITH
  data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
@@ -1176,7 +1175,7 @@ BEGIN
     END LOOP;
 END$$;
 
--- compare the results, but do force a compaction of the incremental result
+-- compare the results
 WITH x AS (SELECT i FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.i, 0.05, 1024)::text FROM x) AS match;
 
@@ -1193,7 +1192,7 @@ BEGIN
     END LOOP;
 END$$;
 
--- compare the results, but do force a compaction of the incremental result
+-- compare the results
 WITH x AS (SELECT mod(i,5) AS a, i::double precision AS d FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), i)
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d, 0.05, 1024)::text FROM x);
 
@@ -1210,6 +1209,6 @@ BEGIN
     END LOOP;
 END$$;
 
--- compare the results, but do force a compaction of the incremental result
+-- compare the results
 WITH x AS (SELECT a, ddsketch(i, 0.05, 1024) AS d FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a)
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d)::text FROM x);
