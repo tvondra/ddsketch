@@ -157,7 +157,7 @@ SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1,10000)
 -----------------------------------------------------------
 
 -- alpha = 0.05
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -171,7 +171,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -186,7 +186,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -200,7 +200,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -215,7 +215,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -229,7 +229,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -248,7 +248,7 @@ SELECT * FROM (
 ------------------------------------------------------------
 
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -262,7 +262,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -277,7 +277,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -291,7 +291,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -306,7 +306,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -320,7 +320,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1000000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -339,7 +339,7 @@ SELECT * FROM (
 ----------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -353,7 +353,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -368,7 +368,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -382,7 +382,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -397,7 +397,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -411,7 +411,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,1000000) AS i, prng(1000000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -430,7 +430,7 @@ SELECT * FROM (
 ----------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -444,7 +444,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -459,7 +459,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -473,7 +473,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -488,7 +488,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x))
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -502,7 +502,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + x AS x FROM prng(1000000) s(x)),
+WITH data AS (SELECT 1.0 + x AS x FROM prng(100000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -521,7 +521,7 @@ SELECT * FROM (
 --------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -535,7 +535,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -550,7 +550,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -564,7 +564,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -579,7 +579,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -593,7 +593,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(z) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -612,7 +612,7 @@ SELECT * FROM (
 -------------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -626,7 +626,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -641,7 +641,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -655,7 +655,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -670,7 +670,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -684,7 +684,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -703,7 +703,7 @@ SELECT * FROM (
 -------------------------------------------------
 
 -- alpha 0.05
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -717,7 +717,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -732,7 +732,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -746,7 +746,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -761,7 +761,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -775,7 +775,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 2) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -795,7 +795,7 @@ SELECT * FROM (
 -----------------------------------------------------
 
 -- 0.05 alpha
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -809,7 +809,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -824,7 +824,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -838,7 +838,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -853,7 +853,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z))
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -867,7 +867,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM prng(100000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -974,7 +974,7 @@ SELECT * FROM (
 
 -- some basic tests to verify transforming from and to text work
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,1000000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
@@ -994,7 +994,7 @@ FROM (
 -- verify we can store ddsketch in a summary table
 CREATE TABLE intermediate_ddsketch (grouping int, summary ddsketch);
 
-WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z))
+WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z))
 INSERT INTO intermediate_ddsketch
 SELECT
     i % 10 AS grouping,
@@ -1002,7 +1002,7 @@ SELECT
 FROM data
 GROUP BY i % 10;
 
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(1000000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z)),
      intermediate AS (SELECT ddsketch_percentile(summary, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate_ddsketch),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
@@ -1195,6 +1195,7 @@ END$$;
 -- compare the results
 WITH x AS (SELECT mod(i,5) AS a, i::double precision AS d FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), i)
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d, 0.05, 1024)::text FROM x);
+
 
 -- now try the same thing with bulk incremental update (using ddsketches)
 TRUNCATE t;
