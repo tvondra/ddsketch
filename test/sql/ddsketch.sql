@@ -74,6 +74,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -----------------------------------------------------------
+-- parameter validation
+-----------------------------------------------------------
+
+-- invalid percentile value
+SELECT ddsketch_percentile(i / 1.0, 0.01, 1024, ARRAY[0.1, -0.1]) FROM generate_series(1,10000) s(i);
+
+-- alpha too low
+SELECT ddsketch_percentile(i / 1.0, 0.00009, 1024, 0.5) FROM generate_series(1,10000) s(i);
+
+-- alpha too high
+SELECT ddsketch_percentile(i / 1.0, 0.11, 1024, 0.5) FROM generate_series(1,10000) s(i);
+
+-- fewer than minimum number of buckets
+SELECT ddsketch_percentile(i / 1.0, 0.01, 15, 0.5) FROM generate_series(1,10000) s(i);
+
+-- more than maximum number of buckets
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32769, 0.5) FROM generate_series(1,10000) s(i);
+
+-- too many buckets needed
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1,10000) s(i);
+
+-----------------------------------------------------------
 -- nice data set with ordered (asc) / evenly-spaced data --
 -----------------------------------------------------------
 
