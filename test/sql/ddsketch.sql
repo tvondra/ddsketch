@@ -3203,3 +3203,18 @@ WITH sketches AS (
 SELECT ddsketch_union(NULL::ddsketch, sketches.s) FROM sketches;
 
 SELECT ddsketch_union(NULL::ddsketch, NULL::ddsketch);
+
+
+-- test info functions
+WITH data AS (SELECT 0.5 + i/10000.0 AS v FROM generate_series(1,10000) s(i)),
+     sketch AS (SELECT ddsketch(v, 0.05, 128) s FROM data)
+SELECT * FROM ddsketch_info((SELECT s FROM sketch));
+
+WITH data AS (SELECT 0.5 + i/10000.0 AS v FROM generate_series(1,10000) s(i)),
+     sketch AS (SELECT ddsketch(v, 0.05, 128) s FROM data)
+SELECT * FROM ddsketch_buckets((SELECT s FROM sketch));
+
+SELECT * FROM ddsketch_info(0.05);
+
+SELECT * FROM ddsketch_buckets(0.05, 0.5, 5);
+SELECT * FROM ddsketch_buckets(0.05, -5, -0.5);

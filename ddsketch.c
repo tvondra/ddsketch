@@ -238,6 +238,11 @@ PG_FUNCTION_INFO_V1(ddsketch_add_double_count_increment);
 PG_FUNCTION_INFO_V1(ddsketch_add_double_array_increment);
 PG_FUNCTION_INFO_V1(ddsketch_union_double_increment);
 
+PG_FUNCTION_INFO_V1(ddsketch_sketch_info);
+PG_FUNCTION_INFO_V1(ddsketch_sketch_buckets);
+PG_FUNCTION_INFO_V1(ddsketch_param_info);
+PG_FUNCTION_INFO_V1(ddsketch_param_buckets);
+
 Datum ddsketch_add_double_array(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_count(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_values(PG_FUNCTION_ARGS);
@@ -274,6 +279,11 @@ Datum ddsketch_add_double_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_count_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_increment(PG_FUNCTION_ARGS);
 Datum ddsketch_union_double_increment(PG_FUNCTION_ARGS);
+
+Datum ddsketch_sketch_info(PG_FUNCTION_ARGS);
+Datum ddsketch_sketch_buckets(PG_FUNCTION_ARGS);
+Datum ddsketch_param_info(PG_FUNCTION_ARGS);
+Datum ddsketch_param_buckets(PG_FUNCTION_ARGS);
 
 static Datum double_to_array(FunctionCallInfo fcinfo, double * d, int len);
 static double *array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int * len);
@@ -2859,15 +2869,343 @@ ddsketch_pow_gamma(ddsketch_aggstate_t *state, double value)
 	return pow(2.0, (value / state->multiplier));
 }
 
+static double
+ddsketch_map_lower_bound(double alpha, int index)
+{
+	int		offset = 0;
+	double	multiplier = log(2.0) / log1p(2 * alpha / (1 - alpha));
+
+	/* XXX not sure about the ceil() inverse */
+	return exp(log(2.0) * ((double) index - offset - 1) / multiplier);
+}
+
+static double
+ddsketch_map_upper_bound(double alpha, int index)
+{
+	/* lower bound of the next bucket */
+	return ddsketch_map_lower_bound(alpha, index + 1);
+}
+
 static int
 ddsketch_map_index(ddsketch_aggstate_t *state, double value)
 {
 	return (int)(ceil(ddsketch_log_gamma(state, value)) + state->offset);
 }
 
+static int
+ddsketch_map_index2(double alpha, double value)
+{
+	double	multiplier = log(2.0) / log1p(2 * alpha / (1 - alpha));
+	double	log_gamma = log(value) / log(2.0) * multiplier;
+	double	offset = 0;
+
+	return (int)(ceil(log_gamma) + offset);
+}
+
 static double
 ddsketch_map_value(ddsketch_aggstate_t *state, double index)
 {
 	return ddsketch_pow_gamma(state, index - state->offset) * (2.0 / (1 + state->gamma));
+}
+
+Datum
+ddsketch_sketch_info(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch = PG_GETARG_DDSKETCH(0);
+	TupleDesc	tupdesc;
+
+	Datum		result;
+	HeapTuple	tuple;
+	Datum		values[10];
+	bool		nulls[10];
+
+	double		gamma;
+	double		min_indexable_value;
+	double		max_indexable_value;
+
+	/* Build a tuple descriptor for our result type */
+	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+		elog(ERROR, "return type must be a row type");
+
+	gamma = (1 + sketch->alpha) / (1 - sketch->alpha);
+	min_indexable_value = DBL_MIN * gamma;
+	max_indexable_value = DBL_MAX / gamma;
+
+	values[0] = UInt64GetDatum(SKETCH_BYTES(sketch));
+	values[1] = UInt32GetDatum(sketch->flags);
+	values[2] = Float8GetDatum(sketch->alpha);
+	values[3] = Int64GetDatum(sketch->count);
+	values[4] = Int64GetDatum(sketch->zero_count);
+	values[5] = Int32GetDatum(sketch->maxbuckets);
+	values[6] = Int32GetDatum(sketch->nbuckets_negative);
+	values[7] = Int32GetDatum(sketch->nbuckets - sketch->nbuckets_negative);
+	values[8] = Float8GetDatum(min_indexable_value);
+	values[9] = Float8GetDatum(max_indexable_value);
+
+	/* Build and return the tuple. */
+
+	memset(nulls, 0, sizeof(nulls));
+
+	tuple = heap_form_tuple(tupdesc, values, nulls);
+	result = HeapTupleGetDatum(tuple);
+
+	PG_RETURN_DATUM(result);
+}
+
+Datum
+ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch = PG_GETARG_DDSKETCH(0);
+	FuncCallContext *fctx;
+	TupleDesc		tupdesc;
+
+	if (SRF_IS_FIRSTCALL())
+	{
+		MemoryContext mctx;
+
+		fctx = SRF_FIRSTCALL_INIT();
+
+		mctx = MemoryContextSwitchTo(fctx->multi_call_memory_ctx);
+
+		/* Build a tuple descriptor for our result type */
+		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+			elog(ERROR, "return type must be a row type");
+
+		fctx->user_fctx = tupdesc;
+		fctx->max_calls = sketch->nbuckets;
+
+		MemoryContextSwitchTo(mctx);
+	}
+
+	fctx = SRF_PERCALL_SETUP();
+
+	if (fctx->call_cntr < fctx->max_calls)
+	{
+		bucket_t   *bucket = &sketch->buckets[fctx->call_cntr];
+		HeapTuple	resultTuple;
+		Datum		result;
+		Datum		values[6];
+		bool		nulls[6];
+
+		double		lower_bound = ddsketch_map_lower_bound(sketch->alpha, bucket->index);
+		double		upper_bound = ddsketch_map_upper_bound(sketch->alpha, bucket->index);
+
+		tupdesc = fctx->user_fctx;
+
+		memset(nulls, 0, sizeof(nulls));
+
+		/* Extract information from the line pointer */
+		values[0] = Int32GetDatum(fctx->call_cntr);
+		values[1] = Int32GetDatum(bucket->index);
+
+		if (fctx->call_cntr > sketch->nbuckets_negative)
+		{
+			values[2] = Float8GetDatum(lower_bound);
+			values[3] = Float8GetDatum(upper_bound);
+		}
+		else
+		{
+			values[2] = Float8GetDatum(-upper_bound);
+			values[3] = Float8GetDatum(-lower_bound);
+		}
+
+		values[4] = Float8GetDatum(fabs(upper_bound - lower_bound));
+		values[5] = Int32GetDatum(bucket->count);
+
+		/* Build and return the result tuple. */
+		resultTuple = heap_form_tuple(tupdesc, values, nulls);
+		result = HeapTupleGetDatum(resultTuple);
+
+		SRF_RETURN_NEXT(fctx, result);
+	}
+	else
+		SRF_RETURN_DONE(fctx);
+}
+
+Datum
+ddsketch_param_info(PG_FUNCTION_ARGS)
+{
+	double		alpha = PG_GETARG_FLOAT8(0);
+	TupleDesc	tupdesc;
+
+	Datum		result;
+	HeapTuple	tuple;
+	Datum		values[2];
+	bool		nulls[2];
+
+	double		gamma;
+	double		min_indexable_value;
+	double		max_indexable_value;
+
+	/* Build a tuple descriptor for our result type */
+	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+		elog(ERROR, "return type must be a row type");
+
+	gamma = (1 + alpha) / (1 - alpha);
+	min_indexable_value = DBL_MIN * gamma;
+	max_indexable_value = DBL_MAX / gamma;
+
+	values[0] = Float8GetDatum(min_indexable_value);
+	values[1] = Float8GetDatum(max_indexable_value);
+
+	/* Build and return the tuple. */
+
+	memset(nulls, 0, sizeof(nulls));
+
+	tuple = heap_form_tuple(tupdesc, values, nulls);
+	result = HeapTupleGetDatum(tuple);
+
+	PG_RETURN_DATUM(result);
+}
+
+typedef struct ddsketch_buckets_state_t {
+	TupleDesc	tupdesc;
+	bool		negative;
+	int			index;
+	int			switch_index;
+} ddsketch_buckets_state_t;
+
+Datum
+ddsketch_param_buckets(PG_FUNCTION_ARGS)
+{
+	double		alpha = PG_GETARG_FLOAT8(0);
+	double		min_value = PG_GETARG_FLOAT8(1);
+	double		max_value = PG_GETARG_FLOAT8(2);
+
+	FuncCallContext *fctx;
+	TupleDesc		tupdesc;
+
+	if (SRF_IS_FIRSTCALL())
+	{
+		MemoryContext mctx;
+		ddsketch_buckets_state_t *state;
+
+		double	gamma = (1 + alpha) / (1 - alpha);
+
+		double	min_indexable_value = (DBL_MIN * gamma),
+				max_indexable_value = (DBL_MAX / gamma);
+
+		fctx = SRF_FIRSTCALL_INIT();
+
+		mctx = MemoryContextSwitchTo(fctx->multi_call_memory_ctx);
+
+		/* Build a tuple descriptor for our result type */
+		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
+			elog(ERROR, "return type must be a row type");
+
+		state = palloc(sizeof(ddsketch_buckets_state_t));
+		fctx->user_fctx = state;
+		fctx->max_calls = 0;
+
+		state->tupdesc = tupdesc;
+
+		/* Did we get a sensible range? */
+		if (min_value > max_value)
+			elog(ERROR, "invalid range (%e > %e)", min_value, max_value);
+
+		/*
+		 * Consider the indexable range. For the upper bound, we can't do much
+		 * about those values - the ddsketch will fail anyway, so just report
+		 * the issue here.
+		 */
+		if (fabs(min_value) > max_indexable_value)
+			elog(ERROR, "maximum value is outside indexable range (%e > %e)",
+				 max_value, max_indexable_value);
+
+		if (fabs(max_value) > max_indexable_value)
+			elog(ERROR, "minimum value is outside indexable range (%e > %e)",
+				 max_value, max_indexable_value);
+
+		/*
+		 * For the other end of the indexable range (values close to 0), we can
+		 * track such values in the zero bucket. So we just replace the value
+		 * with min_indexable_value, if needed.
+		 */
+		if (fabs(min_value) < min_indexable_value)
+			min_value = (max_value > 0) ? (min_indexable_value) : (-min_indexable_value);
+
+		if (fabs(max_value) < min_indexable_value)
+			max_value = (min_value > 0) ? (-min_indexable_value) : min_indexable_value;
+
+		/*
+		 * Now calculate the number of buckets to generate - we need to be
+		 * careful about the case containing 0.
+		 */
+		if (((min_value > 0) && (max_value > 0)) ||
+			((min_value < 0) && (max_value < 0)))
+		{
+			int	min_index = ddsketch_map_index2(alpha, fabs(min_value));
+			int	max_index = ddsketch_map_index2(alpha, fabs(max_value));
+
+			fctx->max_calls = (fabs(max_index - min_index) + 1);
+			state->index = min_index;
+			state->switch_index = (max_value < 0) ? (min_index + 1) : (min_index - 1);
+			state->negative = (max_value < 0);
+		}
+		else
+		{
+			int	min_index = ddsketch_map_index2(alpha, fabs(min_value));
+			int	max_index = ddsketch_map_index2(alpha, fabs(max_value));
+
+			int	switch_index = ddsketch_map_index2(alpha, min_indexable_value);
+
+			fctx->max_calls = (fabs(max_index - switch_index) + fabs(switch_index - min_index) + 2);
+			state->index = min_index;
+			state->switch_index = switch_index;
+			state->negative = (min_value < 0);
+		}
+
+		MemoryContextSwitchTo(mctx);
+	}
+
+	fctx = SRF_PERCALL_SETUP();
+
+	if (fctx->call_cntr < fctx->max_calls)
+	{
+		HeapTuple	resultTuple;
+		Datum		result;
+		Datum		values[4];
+		bool		nulls[4];
+
+		ddsketch_buckets_state_t *state = fctx->user_fctx;
+
+		double		lower_bound = ddsketch_map_lower_bound(alpha, state->index);
+		double		upper_bound = ddsketch_map_upper_bound(alpha, state->index);
+
+		tupdesc = state->tupdesc;
+
+		memset(nulls, 0, sizeof(nulls));
+
+		/* Extract information from the line pointer */
+		values[0] = Int32GetDatum(fctx->call_cntr);
+		values[1] = Int32GetDatum(state->index);
+
+		if (state->negative)
+		{
+			values[2] = Float8GetDatum(-upper_bound);
+			values[3] = Float8GetDatum(-lower_bound);
+		}
+		else
+		{
+			values[2] = Float8GetDatum(lower_bound);
+			values[3] = Float8GetDatum(upper_bound);
+		}
+
+		/* Build and return the result tuple. */
+		resultTuple = heap_form_tuple(tupdesc, values, nulls);
+		result = HeapTupleGetDatum(resultTuple);
+
+		/* proceed */
+		if (state->negative && state->index == state->switch_index)
+			state->negative = false;
+		else if (state->negative)
+			state->index--;
+		else
+			state->index++;
+
+		SRF_RETURN_NEXT(fctx, result);
+	}
+	else
+		SRF_RETURN_DONE(fctx);
 }
 

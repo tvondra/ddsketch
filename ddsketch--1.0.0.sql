@@ -320,3 +320,24 @@ CREATE OR REPLACE FUNCTION ddsketch_union(p_sketch1 ddsketch, p_sketch2 ddsketch
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_union_double_increment'
     LANGUAGE C IMMUTABLE;
+
+
+CREATE OR REPLACE FUNCTION ddsketch_info(p_sketch ddsketch, out bytes bigint, out flags bigint, out alpha double precision, out count bigint, out zero_count bigint, out max_buckets int, out negative_buckets int, out positive_buckets int, out min_indexable double precision, out max_indexable double precision)
+    RETURNS record
+    AS 'ddsketch', 'ddsketch_sketch_info'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_buckets(p_sketch ddsketch, out index int, out bucket_index int, out bucket_lower double precision, out bucket_upper double precision, out bucket_length double precision, out bucket_count bigint)
+    RETURNS SETOF record
+    AS 'ddsketch', 'ddsketch_sketch_buckets'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_info(p_alpha double precision, out min_indexable double precision, out max_indexable double precision)
+    RETURNS record
+    AS 'ddsketch', 'ddsketch_param_info'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_buckets(p_alpha double precision, p_min_value double precision, p_max_value double precision, out index int, out bucket_index int, out bucket_min double precision, out bucket_max double precision)
+    RETURNS SETOF record
+    AS 'ddsketch', 'ddsketch_param_buckets'
+    LANGUAGE C IMMUTABLE;
