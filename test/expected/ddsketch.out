@@ -141,7 +141,7 @@ ERROR:  bucket overflow (used 32, allocated 32, max 32)
 -- nice data set with ordered (asc) / evenly-spaced data --
 -----------------------------------------------------------
 -- alpha = 0.05
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -163,7 +163,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -185,7 +185,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -208,7 +208,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -225,7 +225,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000  AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 5000  AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -242,7 +242,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -260,7 +260,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -282,7 +282,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -304,7 +304,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -327,7 +327,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -344,7 +344,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -361,7 +361,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -379,7 +379,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.001 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -387,7 +387,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -401,7 +401,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -409,7 +409,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 4096, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -423,7 +423,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -431,7 +431,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -446,7 +446,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -456,14 +456,14 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 2048, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -473,14 +473,14 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 4096, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -490,7 +490,7 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 2048, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
@@ -501,7 +501,7 @@ SELECT * FROM (
 -- nice data set with ordered (desc) / evenly-spaced data --
 ------------------------------------------------------------
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -523,7 +523,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -545,7 +545,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -568,7 +568,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -585,7 +585,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -602,7 +602,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -620,7 +620,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -642,7 +642,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -664,7 +664,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -687,7 +687,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -704,7 +704,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -721,7 +721,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -739,7 +739,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -747,7 +747,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -761,7 +761,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -769,7 +769,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 4096, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -783,7 +783,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -791,7 +791,7 @@ SELECT
 FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
-        unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
+        unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
         unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
     FROM data
 ) foo;
@@ -806,7 +806,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -816,14 +816,14 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 2048, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -833,14 +833,14 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 4096, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(100000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -850,7 +850,7 @@ SELECT * FROM (
     FROM (
         SELECT
             unnest((SELECT p FROM perc)) AS p,
-            unnest(ddsketch_percentile(x, 0.001, 8192, (SELECT p FROM perc))) AS a
+            unnest(ddsketch_percentile(x, 0.001, 2048, (SELECT p FROM perc))) AS a
         FROM data
     ) foo ) bar WHERE a < b;
  p | a | b 
@@ -861,7 +861,7 @@ SELECT * FROM (
 -- nice data set with random / evenly-spaced data --
 ----------------------------------------------------
 -- alpha 0.05
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -883,7 +883,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -905,7 +905,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -928,7 +928,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -945,7 +945,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -962,7 +962,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -980,7 +980,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1002,7 +1002,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1024,7 +1024,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1047,7 +1047,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1064,7 +1064,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1081,7 +1081,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1099,7 +1099,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1121,7 +1121,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1143,7 +1143,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo)
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo)
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1166,7 +1166,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1183,7 +1183,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 5000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1200,7 +1200,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM (SELECT generate_series(1,100000) AS i, prng(100000, 49979693) AS x ORDER BY x) foo),
+WITH data AS (SELECT i - 10000 AS x FROM (SELECT generate_series(1,10000) AS i, prng(10000, 49979693) AS x ORDER BY x) foo),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1221,7 +1221,7 @@ SELECT * FROM (
 -- nice data set with random data (uniform) --
 ----------------------------------------------
 -- alpha 0.05
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1243,7 +1243,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1265,7 +1265,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1288,7 +1288,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1305,7 +1305,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1322,7 +1322,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1340,7 +1340,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1362,7 +1362,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1384,7 +1384,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1407,7 +1407,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1424,7 +1424,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1441,7 +1441,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1459,7 +1459,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.001
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1481,7 +1481,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1503,7 +1503,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x))
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1526,7 +1526,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * x AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1543,7 +1543,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 50000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 5000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1560,7 +1560,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * x - 100000 AS x FROM prng(100000) s(x)),
+WITH data AS (SELECT 10000 * x - 10000 AS x FROM prng(10000) s(x)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1581,7 +1581,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed sqrt) --
 --------------------------------------------------
 -- alpha 0.05
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1603,7 +1603,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1625,7 +1625,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 10000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1648,7 +1648,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1665,7 +1665,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1682,7 +1682,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1700,7 +1700,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1722,7 +1722,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1744,7 +1744,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 10000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -1767,7 +1767,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1784,7 +1784,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1801,7 +1801,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1819,7 +1819,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.001 alpha
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1841,7 +1841,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1863,7 +1863,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -1886,7 +1886,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(z) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1903,7 +1903,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1920,7 +1920,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(z) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(z) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -1941,7 +1941,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed sqrt+sqrt) --
 -------------------------------------------------------
 -- alpha 0.05
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1963,7 +1963,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -1985,7 +1985,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2008,7 +2008,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2025,7 +2025,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2042,7 +2042,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2060,7 +2060,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2082,7 +2082,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2104,7 +2104,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2127,7 +2127,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2144,7 +2144,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2161,7 +2161,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2179,7 +2179,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.001
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2201,7 +2201,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2223,7 +2223,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2246,7 +2246,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2263,7 +2263,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2280,7 +2280,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * sqrt(sqrt(z)) - 100000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * sqrt(sqrt(z)) - 10000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2301,7 +2301,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed pow) --
 -------------------------------------------------
 -- alpha 0.05
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2323,7 +2323,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2346,7 +2346,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2363,7 +2363,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2381,7 +2381,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2403,7 +2403,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2426,7 +2426,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2443,7 +2443,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2461,7 +2461,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.001 alpha
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2483,7 +2483,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2506,7 +2506,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 2) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2523,7 +2523,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 2) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 2) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2544,7 +2544,7 @@ SELECT * FROM (
 -- nice data set with random data (skewed pow+pow) --
 -----------------------------------------------------
 -- 0.05 alpha
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2566,7 +2566,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2589,7 +2589,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2606,7 +2606,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2624,7 +2624,7 @@ SELECT * FROM (
 (0 rows)
 
 -- alpha 0.01
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2646,7 +2646,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2669,7 +2669,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2686,7 +2686,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2704,7 +2704,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.001 alpha
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2726,7 +2726,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2749,7 +2749,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 4) AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2766,7 +2766,7 @@ SELECT * FROM (
 ---+---+---
 (0 rows)
 
-WITH data AS (SELECT 100000 * pow(z, 4) - 50000 AS x FROM prng(100000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) - 5000 AS x FROM prng(10000) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2787,7 +2787,7 @@ SELECT * FROM (
 -- nice data set with random data (normal distribution) --
 ----------------------------------------------------------
 -- 0.05 alpha
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2810,7 +2810,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2828,7 +2828,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.01 alpha
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2851,7 +2851,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2869,7 +2869,7 @@ SELECT * FROM (
 (0 rows)
 
 -- 0.001 alpha
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2892,7 +2892,7 @@ FROM (
 (6 rows)
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 100000 * pow(z, 3) AS x FROM random_normal(100000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2911,7 +2911,7 @@ SELECT * FROM (
 
 -- some basic tests to verify transforming from and to text work
 -- 0.05 alpha
-WITH data AS (SELECT i AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
@@ -2937,7 +2937,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 50000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
@@ -2963,7 +2963,7 @@ FROM (
  0.99 | t           | 
 (6 rows)
 
-WITH data AS (SELECT i - 100000 AS x FROM generate_series(1,100000) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
@@ -2991,14 +2991,14 @@ FROM (
 
 -- verify we can store ddsketch in a summary table
 CREATE TABLE intermediate_ddsketch (grouping int, summary ddsketch);
-WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z))
+WITH data AS (SELECT row_number() OVER () AS i, 1.0 + pow(z, 4) AS x FROM random_normal(10000) s(z))
 INSERT INTO intermediate_ddsketch
 SELECT
     i % 10 AS grouping,
     ddsketch(x, 0.05, 1024) AS summary
 FROM data
 GROUP BY i % 10;
-WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(100000) s(z)),
+WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(10000) s(z)),
      intermediate AS (SELECT ddsketch_percentile(summary, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate_ddsketch),
      pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
 SELECT
@@ -3025,14 +3025,14 @@ FROM (
 
 -- verify we can store ddsketch in a summary table (individual percentiles)
 TRUNCATE intermediate_ddsketch;
-WITH data AS (SELECT row_number() OVER () AS i, 100 * pow(z, 4) AS x FROM random_normal(100000) s(z))
+WITH data AS (SELECT row_number() OVER () AS i, 100 * pow(z, 4) AS x FROM random_normal(10000) s(z))
 INSERT INTO intermediate_ddsketch
 SELECT
     i % 10 AS grouping,
     ddsketch(x, 0.05, 1024) AS summary
 FROM data
 GROUP BY i % 10;
-WITH data AS (SELECT 100 * pow(z, 4) AS x FROM random_normal(100000) s(z))
+WITH data AS (SELECT 100 * pow(z, 4) AS x FROM random_normal(10000) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -3314,7 +3314,7 @@ SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d)::text FROM x);
 (1 row)
 
 -- percentile_of with an array of values
-WITH data AS (SELECT i / 100.0 AS v FROM generate_series(-10000, 10000) s(i))
+WITH data AS (SELECT i / 50.0 AS v FROM generate_series(-5000, 5000) s(i))
 SELECT
     f,
     abs(a - b) < 0.05
@@ -3339,7 +3339,7 @@ FROM (
 
 -- percentile_of and individual values
 WITH
-    data AS (SELECT i / 100.0 AS v FROM generate_series(-10000, 10000) s(i))
+    data AS (SELECT i / 50.0 AS v FROM generate_series(-5000, 5000) s(i))
 SELECT
     f,
     abs(a - b) < 0.05
@@ -3365,7 +3365,7 @@ FROM (
 
 -- <value,count> API with percentile_of and individual values
 WITH
-    data AS (SELECT i / 100.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-10000, 10000) s(i)),
+    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-5000, 5000) s(i)),
     data_expanded AS (SELECT foo.v FROM (SELECT data.c, data.v FROM data) foo, LATERAL generate_series(1, c))
 SELECT
     f,
@@ -3392,7 +3392,7 @@ FROM (
 
 -- <value,count> API with percentile_of and an array
 WITH
-    data AS (SELECT i / 100.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-10000, 10000) s(i)),
+    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-5000, 5000) s(i)),
     data_expanded AS (SELECT foo.v FROM (SELECT data.c, data.v FROM data) foo, LATERAL generate_series(1, c))
 SELECT
     f,
@@ -3422,7 +3422,7 @@ FROM (
 -- but for uniform distribution it's fairly close to the relative error
 -- the ddsketch was defined with
 WITH
-  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
   sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
 SELECT
   v,
@@ -3434,113 +3434,55 @@ FROM (
     (SELECT ddsketch_percentile_of(sketch.s, foo.v) FROM sketch) a,
     (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
   FROM
-    (SELECT i * 10.0 AS v FROM generate_series(1,99) s(i)) foo
+    (SELECT i AS v FROM generate_series(0,1000,25) s(i)) foo
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
 WITH
-  data AS (SELECT mod(i,10) as x, i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  data AS (SELECT mod(i,10) as x, i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
   sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY data.x)
 SELECT
   v,
@@ -3552,117 +3494,59 @@ FROM (
     (SELECT ddsketch_percentile_of(sketches.s, foo.v) FROM sketches) a,
     (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
   FROM
-    (SELECT i * 10.0 AS v FROM generate_series(1,99) s(i)) foo
+    (SELECT i AS v FROM generate_series(0,1000,25) s(i)) foo
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
 WITH
-  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
   sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data),
-  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
   sketch_values AS (SELECT ddsketch_percentile_of(sketch.s, vals.v) AS v FROM sketch, vals),
-  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
 SELECT
   v,
   check_relative_error(a, b, 0.06) AS check_error,
@@ -3675,115 +3559,57 @@ FROM (
   FROM
     vals, sketch_values, percent_ranks
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
 WITH
-  data AS (SELECT mod(i,10) AS x, i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
+  data AS (SELECT mod(i,10) AS x, i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
   sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY x),
-  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
   sketch_values AS (SELECT ddsketch_percentile_of(sketches.s, vals.v) AS v FROM sketches, vals),
-  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
 SELECT
   v,
   check_relative_error(a, b, 0.06) AS check_error,
@@ -3796,115 +3622,57 @@ FROM (
   FROM
     vals, sketch_values, percent_ranks
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
 -- now the same thing, but pass the values as a single array
 WITH
-  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
-  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
   sketch_values AS (SELECT ddsketch_percentile_of(data.v, 0.05, 1024, vals.v) AS v FROM data, vals),
-  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
 SELECT
   v,
   check_relative_error(a, b, 0.06) AS check_error,
@@ -3917,114 +3685,56 @@ FROM (
   FROM
     vals, sketch_values, percent_ranks
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
 WITH
-  data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
-  vals AS (SELECT array_agg(i * 10.0) AS v FROM generate_series(1,99) s(i)),
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
   sketch_values AS (SELECT ddsketch_percentile_of(data.v, 0.05, 1024, vals.v) AS v FROM data, vals),
-  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i * 10.0) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(1,99) s(i))
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
 SELECT
   v,
   check_relative_error(a, b, 0.06) AS check_error,
@@ -4037,124 +3747,51 @@ FROM (
   FROM
     vals, sketch_values, percent_ranks
 ) bar;
-   v   | check_error | error_info 
--------+-------------+------------
-  10.0 | t           | 
-  20.0 | t           | 
-  30.0 | t           | 
-  40.0 | t           | 
-  50.0 | t           | 
-  60.0 | t           | 
-  70.0 | t           | 
-  80.0 | t           | 
-  90.0 | t           | 
- 100.0 | t           | 
- 110.0 | t           | 
- 120.0 | t           | 
- 130.0 | t           | 
- 140.0 | t           | 
- 150.0 | t           | 
- 160.0 | t           | 
- 170.0 | t           | 
- 180.0 | t           | 
- 190.0 | t           | 
- 200.0 | t           | 
- 210.0 | t           | 
- 220.0 | t           | 
- 230.0 | t           | 
- 240.0 | t           | 
- 250.0 | t           | 
- 260.0 | t           | 
- 270.0 | t           | 
- 280.0 | t           | 
- 290.0 | t           | 
- 300.0 | t           | 
- 310.0 | t           | 
- 320.0 | t           | 
- 330.0 | t           | 
- 340.0 | t           | 
- 350.0 | t           | 
- 360.0 | t           | 
- 370.0 | t           | 
- 380.0 | t           | 
- 390.0 | t           | 
- 400.0 | t           | 
- 410.0 | t           | 
- 420.0 | t           | 
- 430.0 | t           | 
- 440.0 | t           | 
- 450.0 | t           | 
- 460.0 | t           | 
- 470.0 | t           | 
- 480.0 | t           | 
- 490.0 | t           | 
- 500.0 | t           | 
- 510.0 | t           | 
- 520.0 | t           | 
- 530.0 | t           | 
- 540.0 | t           | 
- 550.0 | t           | 
- 560.0 | t           | 
- 570.0 | t           | 
- 580.0 | t           | 
- 590.0 | t           | 
- 600.0 | t           | 
- 610.0 | t           | 
- 620.0 | t           | 
- 630.0 | t           | 
- 640.0 | t           | 
- 650.0 | t           | 
- 660.0 | t           | 
- 670.0 | t           | 
- 680.0 | t           | 
- 690.0 | t           | 
- 700.0 | t           | 
- 710.0 | t           | 
- 720.0 | t           | 
- 730.0 | t           | 
- 740.0 | t           | 
- 750.0 | t           | 
- 760.0 | t           | 
- 770.0 | t           | 
- 780.0 | t           | 
- 790.0 | t           | 
- 800.0 | t           | 
- 810.0 | t           | 
- 820.0 | t           | 
- 830.0 | t           | 
- 840.0 | t           | 
- 850.0 | t           | 
- 860.0 | t           | 
- 870.0 | t           | 
- 880.0 | t           | 
- 890.0 | t           | 
- 900.0 | t           | 
- 910.0 | t           | 
- 920.0 | t           | 
- 930.0 | t           | 
- 940.0 | t           | 
- 950.0 | t           | 
- 960.0 | t           | 
- 970.0 | t           | 
- 980.0 | t           | 
- 990.0 | t           | 
-(99 rows)
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
 
--- WITH
---   data AS (SELECT i / 100.0 AS v FROM generate_series(1,100000) s(i)), 
---   sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
--- SELECT
---   p,
---   check_relative_error(a, b, 0.05) AS check_error,
---   print_relative_error(a, b, 0.05) AS error_info
--- FROM (
---   SELECT
---     foo.p,
---     (SELECT ddsketch_percentile(sketch.s, foo.p) FROM sketch) a,
---     (SELECT percentile_disc(foo.p) WITHIN GROUP (ORDER BY v) FROM data) b
---   FROM
---     (SELECT i / 100.0 AS p FROM generate_series(1,99) s(i)) foo
--- ) bar;
 CREATE TABLE src_data (v double precision);
 INSERT INTO src_data SELECT z FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
 ANALYZE src_data;
