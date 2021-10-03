@@ -333,6 +333,8 @@ AssertCheckDDSketch(ddsketch_t *sketch)
 	int64	count;
 	bucket_t *buckets;
 
+	Assert(sketch->flags == SKETCH_DEFAULT_FLAGS);
+
 	Assert(sketch->alpha >= MIN_SKETCH_ALPHA);
 	Assert(sketch->alpha <= MAX_SKETCH_ALPHA);
 
@@ -2624,6 +2626,11 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	if (r != 7)
 		elog(ERROR, "failed to parse ddsketch value");
 
+	if (flags != SKETCH_DEFAULT_FLAGS)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid sketch flags %d", flags)));
+
 	if ((alpha < MIN_SKETCH_ALPHA) || (alpha > MAX_SKETCH_ALPHA))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2635,6 +2642,18 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
 						maxbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
+
+	if (nbuckets <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of buckets (%d) for ddsketch must be positive",
+						nbuckets)));
+
+	if (nbuckets_negative < 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of negative buckets (%d) for ddsketch must not be negative",
+						nbuckets_negative)));
 
 	if (nbuckets_negative > nbuckets)
 		ereport(ERROR,
@@ -2668,32 +2687,72 @@ ddsketch_in(PG_FUNCTION_ARGS)
 
 	ptr = str + header_length;
 
+	count = zero_count;
+
 	i = 0;
 	while (true)
 	{
 		int		index;
+		int64	bucket_count;
 
-		if (sscanf(ptr, " (%d, " INT64_FORMAT ")", &index, &count) != 2)
+		if (sscanf(ptr, " (%d, " INT64_FORMAT ")", &index, &bucket_count) != 2)
 			break;
 
 		if (i >= nbuckets)
 			elog(ERROR, "too many buckets parsed");
 
-		/* XXX can we do some check of the index value? */
+		/*
+		 * Basic checks that the indexes are decreasing in the negative part
+		 * and increasing in the positive part.
+		 *
+		 * XXX Can we check the index value is valid (not too low/high)?
+		 */
+		if ((i != 0) && (i < nbuckets_negative))
+		{
+			/* negative store - descending index values */
+			if (sketch->buckets[i-1].index <= index)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("invalid sketch - ascending indexes in the negative part")));
+		}
+		else if (i  > nbuckets_negative)
+		{
+			/* positive store - ascending index values */
+			if (sketch->buckets[i-1].index >= index)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("invalid sketch - descending indexes in the positive part")));
+		}
 
 		/* we don't include empty buckets */
-		if (count <= 0)
+		if (bucket_count <= 0)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("count value for all indexes in a ddsketch must be positive")));
 
 		sketch->buckets[i].index = index;
-		sketch->buckets[i].count = count;
+		sketch->buckets[i].count = bucket_count;
+
+		count += bucket_count;
 
 		/* skip to the end of the centroid */
 		ptr = strchr(ptr, ')') + 1;
 		i++;
 	}
+
+	/* Did we parse exactly the expected number of buckets? */
+	if (i != nbuckets)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("parsed invalid number of buckets (%d != %d)",
+						i, nbuckets)));
+
+	/* Did we get buckets matching the header? */
+	if (count != sketch->count)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("total count (%ld) does not match buckets (%ld)",
+						sketch->count, count)));
 
 	Assert(ptr == str + strlen(str));
 
