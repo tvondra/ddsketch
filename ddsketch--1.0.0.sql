@@ -341,3 +341,104 @@ CREATE OR REPLACE FUNCTION ddsketch_buckets(p_alpha double precision, p_min_valu
     RETURNS SETOF record
     AS 'ddsketch', 'ddsketch_param_buckets'
     LANGUAGE C IMMUTABLE;
+
+
+-- trimmed aggregates
+CREATE OR REPLACE FUNCTION ddsketch_add_double_trimmed(p_pointer internal, p_element double precision, p_alpha double precision, p_buckets int, p_low double precision, p_high double precision)
+    RETURNS internal
+    AS 'ddsketch', 'ddsketch_add_double_trimmed'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_add_double_count_trimmed(p_pointer internal, p_element double precision, p_count bigint, p_alpha double precision, p_buckets int, p_low double precision, p_high double precision)
+    RETURNS internal
+    AS 'ddsketch', 'ddsketch_add_double_count_trimmed'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_add_sketch_trimmed(p_pointer internal, p_element ddsketch, p_low double precision, p_high double precision)
+    RETURNS internal
+    AS 'ddsketch', 'ddsketch_add_sketch_trimmed'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_trimmed_avg(p_pointer internal)
+    RETURNS double precision
+    AS 'ddsketch', 'ddsketch_trimmed_avg'
+    LANGUAGE C IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION ddsketch_trimmed_sum(p_pointer internal)
+    RETURNS double precision
+    AS 'ddsketch', 'ddsketch_trimmed_sum'
+    LANGUAGE C IMMUTABLE;
+
+
+CREATE AGGREGATE ddsketch_avg(double precision, double precision, int, double precision, double precision) (
+    SFUNC = ddsketch_add_double_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_avg,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+CREATE AGGREGATE ddsketch_avg(double precision, bigint, double precision, int, double precision, double precision) (
+    SFUNC = ddsketch_add_double_count_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_avg,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+CREATE AGGREGATE ddsketch_avg(ddsketch, double precision, double precision) (
+    SFUNC = ddsketch_add_sketch_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_avg,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+
+CREATE AGGREGATE ddsketch_sum(double precision, double precision, int, double precision, double precision) (
+    SFUNC = ddsketch_add_double_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_sum,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+CREATE AGGREGATE ddsketch_sum(double precision, bigint, double precision, int, double precision, double precision) (
+    SFUNC = ddsketch_add_double_count_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_sum,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+CREATE AGGREGATE ddsketch_sum(ddsketch, double precision, double precision) (
+    SFUNC = ddsketch_add_sketch_trimmed,
+    STYPE = internal,
+    FINALFUNC = ddsketch_trimmed_sum,
+    SERIALFUNC = ddsketch_serial,
+    DESERIALFUNC = ddsketch_deserial,
+    COMBINEFUNC = ddsketch_combine,
+    PARALLEL = SAFE
+);
+
+-- non-aggregate functions to extract trimmed sum/avg from a ddsketch
+
+CREATE OR REPLACE FUNCTION ddsketch_sketch_sum(p_sketch ddsketch, p_low double precision = 0.0, p_high double precision = 1.0)
+    RETURNS double precision
+    AS 'ddsketch', 'ddsketch_sketch_sum'
+    LANGUAGE C IMMUTABLE STRICT;
+
+CREATE OR REPLACE FUNCTION ddsketch_sketch_avg(p_sketch ddsketch, p_low double precision = 0.0, p_high double precision = 1.0)
+    RETURNS double precision
+    AS 'ddsketch', 'ddsketch_sketch_avg'
+    LANGUAGE C IMMUTABLE STRICT;

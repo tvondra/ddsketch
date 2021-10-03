@@ -154,6 +154,10 @@ typedef struct ddsketch_aggstate_t {
 	double		multiplier;
 	double		gamma;
 
+	/* trimmed aggregates */
+	double		trim_low;		/* low threshold (for trimmed aggs) */
+	double		trim_high;		/* high threshold (for trimmed aggs) */
+
 	/* store with buckets (positive and negative) */
 	int64		zero_count;		/* values close to zero */
 	int32		maxbuckets;		/* maximum number of buckets */
@@ -243,6 +247,15 @@ PG_FUNCTION_INFO_V1(ddsketch_sketch_buckets);
 PG_FUNCTION_INFO_V1(ddsketch_param_info);
 PG_FUNCTION_INFO_V1(ddsketch_param_buckets);
 
+PG_FUNCTION_INFO_V1(ddsketch_add_double_trimmed);
+PG_FUNCTION_INFO_V1(ddsketch_add_double_count_trimmed);
+PG_FUNCTION_INFO_V1(ddsketch_add_sketch_trimmed);
+PG_FUNCTION_INFO_V1(ddsketch_trimmed_avg);
+PG_FUNCTION_INFO_V1(ddsketch_trimmed_sum);
+
+PG_FUNCTION_INFO_V1(ddsketch_sketch_sum);
+PG_FUNCTION_INFO_V1(ddsketch_sketch_avg);
+
 Datum ddsketch_add_double_array(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_count(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_array_values(PG_FUNCTION_ARGS);
@@ -284,6 +297,15 @@ Datum ddsketch_sketch_info(PG_FUNCTION_ARGS);
 Datum ddsketch_sketch_buckets(PG_FUNCTION_ARGS);
 Datum ddsketch_param_info(PG_FUNCTION_ARGS);
 Datum ddsketch_param_buckets(PG_FUNCTION_ARGS);
+
+Datum ddsketch_add_double_trimmed(PG_FUNCTION_ARGS);
+Datum ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS);
+Datum ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS);
+Datum ddsketch_trimmed_avg(PG_FUNCTION_ARGS);
+Datum ddsketch_trimmed_sum(PG_FUNCTION_ARGS);
+
+Datum ddsketch_sketch_sum(PG_FUNCTION_ARGS);
+Datum ddsketch_sketch_avg(PG_FUNCTION_ARGS);
 
 static Datum double_to_array(FunctionCallInfo fcinfo, double * d, int len);
 static double *array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int * len);
@@ -930,6 +952,22 @@ check_sketch_parameters(double alpha, int nbuckets)
 
 	if (nbuckets < MIN_SKETCH_BUCKETS || nbuckets > MAX_SKETCH_BUCKETS)
 		elog(ERROR, "invalid number of buckets %d", nbuckets);
+}
+
+static void
+check_trim_values(double low, double high)
+{
+	if (low < 0.0)
+		elog(ERROR, "invalid low percentile value %f, should be in [0.0, 1.0]",
+			 low);
+
+	if (high > 1.0)
+		elog(ERROR, "invalid high percentile value %f, should be in [0.0, 1.0]",
+			 high);
+
+	if (low >= high)
+		elog(ERROR, "invalid low/high percentile values %f/%f, should be low < high",
+			 low, high);
 }
 
 /*
@@ -3209,3 +3247,388 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 		SRF_RETURN_DONE(fctx);
 }
 
+Datum
+ddsketch_add_double_trimmed(PG_FUNCTION_ARGS)
+{
+	ddsketch_aggstate_t *state;
+
+	MemoryContext aggcontext;
+
+	/* cannot be called directly because of internal-type argument */
+	if (!AggCheckCallContext(fcinfo, &aggcontext))
+		elog(ERROR, "ddsketch_add_double called in non-aggregate context");
+
+	/*
+	 * We want to skip NULL values altogether - we return either the existing
+	 * ddsketch (if it already exists) or NULL.
+	 */
+	if (PG_ARGISNULL(1))
+	{
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+
+		/* if there already is a state accumulated, don't forget it */
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+	}
+
+	/* if there's no ddsketch aggstate allocated, create it now */
+	if (PG_ARGISNULL(0))
+	{
+		double	alpha = PG_GETARG_FLOAT8(2);
+		int32	maxbuckets = PG_GETARG_INT32(3);
+		double	low = PG_GETARG_FLOAT8(4);
+		double	high = PG_GETARG_FLOAT8(5);
+
+		MemoryContext	oldcontext;
+
+		check_trim_values(low, high);
+
+		check_sketch_parameters(alpha, maxbuckets);
+
+		oldcontext = MemoryContextSwitchTo(aggcontext);
+
+		state = ddsketch_aggstate_allocate(0, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
+
+		state->trim_low = low;
+		state->trim_high = high;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+	else
+		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
+
+	PG_RETURN_POINTER(state);
+}
+
+Datum
+ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS)
+{
+	int64				count;
+	ddsketch_aggstate_t *state;
+	MemoryContext		aggcontext;
+
+	/* cannot be called directly because of internal-type argument */
+	if (!AggCheckCallContext(fcinfo, &aggcontext))
+		elog(ERROR, "ddsketch_add_double_count called in non-aggregate context");
+
+	/*
+	 * We want to skip NULL values altogether - we return either the existing
+	 * ddsketch (if it already exists) or NULL.
+	 */
+	if (PG_ARGISNULL(1))
+	{
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+
+		/* if there already is a state accumulated, don't forget it */
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+	}
+
+	/* if there's no ddsketch aggstate allocated, create it now */
+	if (PG_ARGISNULL(0))
+	{
+		double	alpha = PG_GETARG_FLOAT8(3);
+		int32	maxbuckets = PG_GETARG_INT32(4);
+		double	low = PG_GETARG_FLOAT8(5);
+		double	high = PG_GETARG_FLOAT8(6);
+
+		MemoryContext	oldcontext;
+
+		check_trim_values(low, high);
+
+		check_sketch_parameters(alpha, maxbuckets);
+
+		oldcontext = MemoryContextSwitchTo(aggcontext);
+
+		state = ddsketch_aggstate_allocate(0, 0, alpha,
+										   maxbuckets, MIN_SKETCH_BUCKETS);
+
+		state->trim_low = low;
+		state->trim_high = high;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+	else
+		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	if (PG_ARGISNULL(2))
+		count = 1;
+	else
+		count = PG_GETARG_INT64(2);
+
+	/* can't add values with non-positive counts */
+	if (count <= 0)
+		elog(ERROR, "invalid count value %ld, must be a positive value", count);
+
+	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
+
+	PG_RETURN_POINTER(state);
+}
+
+/*
+ * Add a value to the sketch (create one if needed). Transition function
+ * for trimmed sketch aggregate with a single value.
+ */
+Datum
+ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS)
+{
+	ddsketch_aggstate_t *state;
+	ddsketch_t		   *sketch;
+
+	MemoryContext aggcontext;
+
+	/* cannot be called directly because of internal-type argument */
+	if (!AggCheckCallContext(fcinfo, &aggcontext))
+		elog(ERROR, "ddsketch_add_sketch called in non-aggregate context");
+
+	/*
+	 * We want to skip NULL values altogether - we return either the existing
+	 * ddsketch (if it already exists) or NULL.
+	 */
+	if (PG_ARGISNULL(1))
+	{
+		if (PG_ARGISNULL(0))
+			PG_RETURN_NULL();
+
+		/* if there already is a state accumulated, don't forget it */
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+	}
+
+	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
+
+	/* if there's no aggregate state allocated, create it now */
+	if (PG_ARGISNULL(0))
+	{
+		double	low = PG_GETARG_FLOAT8(2);
+		double	high = PG_GETARG_FLOAT8(3);
+
+		MemoryContext	oldcontext;
+
+		check_trim_values(low, high);
+
+		oldcontext = MemoryContextSwitchTo(aggcontext);
+
+		state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
+										   sketch->maxbuckets, sketch->nbuckets);
+		state->trim_low = low;
+		state->trim_high = high;
+
+		MemoryContextSwitchTo(oldcontext);
+	}
+	else
+		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
+
+	/* check that the sketch and aggstate are compatible */
+	if (state->alpha != sketch->alpha)
+		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
+			 state->alpha, sketch->alpha);
+
+	ddsketch_merge_buckets(state, false,
+						   SKETCH_BUCKETS_NEGATIVE(sketch),
+						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
+
+	ddsketch_merge_buckets(state, true,
+						   SKETCH_BUCKETS_POSITIVE(sketch),
+						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
+
+	state->zero_count += sketch->zero_count;
+	state->count += sketch->count;
+
+	AssertCheckDDSketchAggState(state);
+
+	PG_RETURN_POINTER(state);
+}
+
+/*
+ * Calculate trimmed aggregates from buckets.
+ */
+static void
+ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
+					double alpha, int64 count, double low, double high,
+					double *sump, int64 *countp)
+{
+	int		i;
+	double	sum = 0;
+	int64	count_done = 0,
+			count_low,
+			count_high;
+
+	/* translate the percentiles to counts */
+	count_low = floor(count * low);
+	count_high = ceil(count * high);
+
+	count = 0;
+	for (i = 0; i < nbuckets; i++)
+	{
+		int64	count_add = 0;
+		int64	count_skip;
+
+		double	bucket_from,
+				bucket_to;
+
+		double	start, end;
+
+		bucket_from = ddsketch_map_lower_bound(alpha, buckets[i].index);
+		bucket_to = ddsketch_map_upper_bound(alpha, buckets[i].index);
+
+		/* How many items to skip in order to cross the lower threshold? */
+		count_skip = Max(0, (count_low - count_done - 1));
+		count_skip = Min(count_skip, buckets[i].count);
+
+		/* How many items to consider including in the sum? */
+		count_add = buckets[i].count - count_skip;
+
+		Assert((count_skip >= 0) && (count_skip <= buckets[i].count));
+		Assert((count_add >= 0) && (count_add <= buckets[i].count));
+		Assert(count_add + count_skip == buckets[i].count);
+
+		/*
+		 * We might cross the upper threshold, ignore those too, so remove
+		 * those items from the count.
+		 */
+		count_add -= Max(0, count_done + buckets[i].count - count_high);
+
+		Assert((count_add >= 0) && (count_add <= buckets[i].count));
+		Assert(count_add + count_skip <= buckets[i].count);
+
+		/*
+		 * Assume the values in the bucket are distributed uniformly, so
+		 * make sure we include just the appropriate part of the bucket.
+		 */
+		start = bucket_from + (count_skip * (bucket_to - bucket_from)) / buckets[i].count;
+		end = bucket_from + ((count_skip + count_add) * (bucket_to - bucket_from)) / buckets[i].count;
+
+		/* increment the sum / count */
+		sum += (start + end) / 2.0 * count_add;
+		count += count_add;
+
+		/* consider the whole bucket processed */
+		count_done += buckets[i].count;
+
+		/* break once we cross the high threshold */
+		if (count_done >= count_high)
+			break;
+	}
+
+	*sump = sum;
+	*countp = count;
+}
+
+
+/*
+ * Compute trimmed average from a sketch. Final function for ddsketch
+ * aggregate with a low/high thresholds.
+ */
+Datum
+ddsketch_trimmed_avg(PG_FUNCTION_ARGS)
+{
+	ddsketch_aggstate_t	   *state;
+	MemoryContext	aggcontext;
+	double			sum;
+	int64			count;
+
+	/* cannot be called directly because of internal-type argument */
+	if (!AggCheckCallContext(fcinfo, &aggcontext))
+		elog(ERROR, "ddsketch_percentiles called in non-aggregate context");
+
+	/* if there's no sketch, return NULL */
+	if (PG_ARGISNULL(0))
+		PG_RETURN_NULL();
+
+	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	ddsketch_trimmed_agg(state->buckets, state->nbuckets, state->nbuckets_negative,
+						 state->alpha, state->count, state->trim_low, state->trim_high,
+						 &sum, &count);
+
+	if (count > 0)
+		PG_RETURN_FLOAT8(sum / count);
+
+	PG_RETURN_NULL();
+}
+
+/*
+ * Compute trimmed sum from a sketch. Final function for ddsketch aggregate
+ * with a low/high threshold.
+ */
+Datum
+ddsketch_trimmed_sum(PG_FUNCTION_ARGS)
+{
+	ddsketch_aggstate_t	   *state;
+	MemoryContext	aggcontext;
+	double			sum;
+	int64			count;
+
+	/* cannot be called directly because of internal-type argument */
+	if (!AggCheckCallContext(fcinfo, &aggcontext))
+		elog(ERROR, "ddsketch_percentiles called in non-aggregate context");
+
+	/* if there's no sketch, return NULL */
+	if (PG_ARGISNULL(0))
+		PG_RETURN_NULL();
+
+	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	ddsketch_trimmed_agg(state->buckets, state->nbuckets, state->nbuckets_negative,
+						 state->alpha, state->count, state->trim_low, state->trim_high,
+						 &sum, &count);
+
+	if (count > 0)
+		PG_RETURN_FLOAT8(sum);
+
+	PG_RETURN_NULL();
+}
+
+/*
+ * Trimmed sum of a single sketch (non-aggregate function).
+ */
+Datum
+ddsketch_sketch_sum(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch = PG_GETARG_DDSKETCH(0);
+	double		low = PG_GETARG_FLOAT8(1);
+	double		high = PG_GETARG_FLOAT8(2);
+
+	double		sum;
+	int64		count;
+
+	AssertCheckDDSketch(sketch);
+
+	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
+						 sketch->alpha, sketch->count, low, high, &sum, &count);
+
+	if (count > 0)
+		PG_RETURN_FLOAT8(sum);
+
+	PG_RETURN_NULL();
+}
+
+/*
+ * Trimmed average of a single sketch (non-aggregate function)
+ */
+Datum
+ddsketch_sketch_avg(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch = PG_GETARG_DDSKETCH(0);
+	double		low = PG_GETARG_FLOAT8(1);
+	double		high = PG_GETARG_FLOAT8(2);
+
+	double		sum;
+	int64		count;
+
+	AssertCheckDDSketch(sketch);
+
+	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
+						 sketch->alpha, sketch->count, low, high, &sum, &count);
+
+	if (count > 0)
+		PG_RETURN_FLOAT8(sum / count);
+
+	PG_RETURN_NULL();
+}

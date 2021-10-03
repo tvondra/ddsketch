@@ -241,6 +241,35 @@ END $$;
 ```
 
 
+## Trimmed aggregates
+
+The extension provides several variants of trimmed (truncated) average and
+sum aggregates, both for individual values and pre-aggregated sketches.
+
+* `ddsketch_sum(value double precision, alpha double precision, nbuckets int, low double precision, high double precision)`
+
+* `ddsketch_sum(value double precision, count bigint, alpha double precision, nbuckets int, low double precision, high double precision)`
+
+* `ddsketch_sum(sketch ddsketch, low double precision, high double precision)`
+
+* `ddsketch_avg(value double precision, alpha double precision, nbuckets int, low double precision, high double precision)`
+
+* `ddsketch_avg(value double precision, count bigint, alpha double precision, nbuckets int, low double precision, high double precision)`
+
+* `ddsketch_avg(sketch ddsketch, low double precision, high double precision)`
+
+The extension also provides two regular functions allowing to calculate
+trimmed (truncated) sum and average from an existing sketch.
+
+* `ddsketch_sketch_sum(digest ddsketch, low double precision, high double precision)`
+
+* `ddsketch_sketch_avg(digest ddsketch, low double precision, high double precision)`
+
+The `low` and `high` parameters specify where to truncate the data. This
+is useful when processing individual sketches without having to add an
+unnecessary aggregation.
+
+
 ## Functions
 
 ### `ddsketch_percentile(value, alpha, nbuckets, percentile)`
@@ -573,6 +602,184 @@ UPDATE t SET d = ddsketch_union(t.d, x.d) FROM x;
 - `ddsketch_add` - sketch to merge into `sketch`
 - `alpha` - accuracy of the sketch
 - `nbuckets` - number of buckets in the sketch
+
+
+### `ddsketch_sum(value, alpha, nbuckets, low, high)`
+
+Computes trimmed sum of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_sum(t.v, 0.05, 1024, 0.1, 0.9) FROM t
+```
+
+#### Parameters
+
+- `value` - values to aggregate
+- `alpha` - accuracy of the t-digest
+- `nbuckets` - number of buckets in the sketch
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_sum(value, count, alpha, nbuckets, low, high)`
+
+Computes trimmed sum of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_sum(t.v, t.c, 0.05, 1024, 0.1, 0.9) FROM t
+```
+
+#### Parameters
+
+- `value` - values to aggregate
+- `count` - number of occurrences of the value
+- `alpha` - accuracy of the t-digest
+- `nbuckets` - number of buckets in the sketch
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_sum(sketch, low, high)`
+
+Computes trimmed sum of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_sum(d, 0.1, 0.9) FROM (
+    SELECT ddsketch(t.c, 0.05, 1024) FROM t
+) foo
+```
+
+#### Parameters
+
+- `count` - number of occurrences of the value
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_avg(value, alpha, nbuckets, low, high)`
+
+Computes trimmed average of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_avg(t.v, 0.05, 1024, 0.1, 0.9) FROM t
+```
+
+#### Parameters
+
+- `value` - values to aggregate
+- `alpha` - accuracy of the t-digest
+- `nbuckets` - number of buckets in the sketch
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_avg(value, count, alpha, nbuckets, low, high)`
+
+Computes trimmed average of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_avg(t.v, 0.05, 1024, 0.1, 0.9) FROM t
+```
+
+#### Parameters
+
+- `value` - values to aggregate
+- `count` - number of occurrences of the value
+- `alpha` - accuracy of the t-digest
+- `nbuckets` - number of buckets in the sketch
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_avg(sketch, low, high)`
+
+Computes trimmed average of values, discarding values at the low and high end.
+The `low` and `high` values specify which part of the sample should be
+included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
+and high values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_avg(d, 0.1, 0.9) FROM (
+    SELECT ddsketch(t.c, 0.05, 1024) FROM t
+) foo
+```
+
+#### Parameters
+
+- `sketch` - ddsketch to aggregate and process
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_sketch_sum(sketch, low, high)`
+
+Calculates trimmed sum from a single sketch, without aggregation. The `low`
+and `high` values specify which part of the sample should be included in the
+result, so e.g. `low = 0.1` and `high = 0.9` means 10% low and high values
+will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_sketch_sum(
+    (SELECT ddsketch(t.c, 0.05, 1024) FROM t),
+    0.1, 0.9)
+```
+
+#### Parameters
+
+- `sketch` - ddsketch to calculate trimmed sum for
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
+
+
+### `ddsketch_sketch_avg(sketch, low, high)`
+
+Calculates trimmed average from a single sketch, without aggregation. The
+`low` and `high` values specify which part of the sample should be included
+in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low and high
+values will be discarded.
+
+#### Synopsis
+
+```
+SELECT ddsketch_sketch_avg(
+    (SELECT ddsketch(t.c, 0.05, 1024) FROM t),
+    0.1, 0.9)
+```
+
+#### Parameters
+
+- `sketch` - ddsketch to calculate trimmed average for
+- `low` - low threshold percentile (values below are discarded)
+- `high` - high threshold percentile (values above are discarded)
 
 
 Notes

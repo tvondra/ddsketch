@@ -3218,3 +3218,68 @@ SELECT * FROM ddsketch_info(0.05);
 
 SELECT * FROM ddsketch_buckets(0.05, 0.5, 5);
 SELECT * FROM ddsketch_buckets(0.05, -5, -0.5);
+
+
+-- trimmed aggregates
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.0, 1.0)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.0, 0.5)   BETWEEN 1200000 AND 1300000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.5, 1.0)   BETWEEN 3700000 AND 3800000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.25, 0.75) BETWEEN 2450000 AND 2550000 FROM generate_series(1,10000) s(i);
+
+SELECT ddsketch_avg(1000 * random(), 0.05, 1024, 0.0, 1.0)   BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 0.05, 1024, 0.0, 0.5)   BETWEEN 240 AND 260 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 0.05, 1024, 0.5, 1.0)   BETWEEN 740 AND 760 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 0.05, 1024, 0.25, 0.75) BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+
+-- trimmed aggregates, <value, count> API
+SELECT ddsketch_sum(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.0, 1.0)   BETWEEN 3 * 4750000 AND 3 * 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.0, 0.5)   BETWEEN 3 * 1200000 AND 3 * 1300000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.5, 1.0)   BETWEEN 3 * 3700000 AND 3 * 3800000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.25, 0.75) BETWEEN 3 * 2450000 AND 3 * 2550000 FROM generate_series(1,10000) s(i);
+
+SELECT ddsketch_avg(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.0, 1.0)   BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.0, 0.5)   BETWEEN 240 AND 260 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.5, 1.0)   BETWEEN 740 AND 760 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_avg(1000 * random(), 1 + mod(i,5), 0.05, 1024, 0.25, 0.75) BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+
+-- trimmed aggregates when aggregating sketches
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_sum(s, 0.0, 1.0)   BETWEEN 4750000 AND 5250000 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_sum(s, 0.0, 0.5)   BETWEEN 1200000 AND 1300000 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_sum(s, 0.5, 1.0)   BETWEEN 3700000 AND 3800000 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_sum(s, 0.25, 0.75) BETWEEN 2450000 AND 2550000 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_avg(s, 0.0, 1.0)   BETWEEN 490 AND 510 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_avg(s, 0.0, 0.5)   BETWEEN 240 AND 260 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_avg(s, 0.5, 1.0)   BETWEEN 740 AND 760 FROM sketches;
+
+WITH sketches AS (SELECT mod(i,5) AS c, ddsketch(1000 * random(), 0.05, 1024) AS s FROM generate_series(1,10000) s(i) GROUP BY 1)
+SELECT ddsketch_avg(s, 0.25, 0.75) BETWEEN 490 AND 510 FROM sketches;
+
+-- trimmed aggregates for a single sketch
+SELECT ddsketch_sketch_sum(ddsketch(1000 * random(), 0.05, 1024), 0.0, 1.0)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_sum(ddsketch(1000 * random(), 0.05, 1024), 0.0, 0.5)   BETWEEN 1200000 AND 1300000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_sum(ddsketch(1000 * random(), 0.05, 1024), 0.5, 1.0)   BETWEEN 3700000 AND 3800000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_sum(ddsketch(1000 * random(), 0.05, 1024), 0.25, 0.75) BETWEEN 2450000 AND 2550000 FROM generate_series(1,10000) s(i);
+
+SELECT ddsketch_sketch_avg(ddsketch(1000 * random(), 0.05, 1024), 0.0, 1.0)   BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_avg(ddsketch(1000 * random(), 0.05, 1024), 0.0, 0.5)   BETWEEN 240 AND 260 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_avg(ddsketch(1000 * random(), 0.05, 1024), 0.5, 1.0)   BETWEEN 740 AND 760 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sketch_avg(ddsketch(1000 * random(), 0.05, 1024), 0.25, 0.75) BETWEEN 490 AND 510 FROM generate_series(1,10000) s(i);
+
+-- check trim parameters
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, -0.1, 1.0)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.1, 1.1)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.9, 0.1)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
+SELECT ddsketch_sum(1000 * random(), 0.05, 1024, 0.5, 0.5)   BETWEEN 4750000 AND 5250000 FROM generate_series(1,10000) s(i);
