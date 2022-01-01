@@ -103,9 +103,10 @@ BEGIN
         RETURN NULL;
     END IF;
 
+    -- add 1% fuzz factor, to account for rounding errors etc.
     err := relative_error(estimated_value, actual_value);
 
-    RETURN (err < allowed_error);
+    RETURN (err < allowed_error * 1.01);
 
 END;
 $$ LANGUAGE plpgsql;
@@ -121,7 +122,8 @@ BEGIN
 
     err := relative_error(estimated_value, actual_value);
 
-    IF err < allowed_error THEN
+    -- add 1% fuzz factor, to account for rounding errors etc.
+    IF err < (allowed_error * 1.01) THEN
         RETURN NULL;
     END IF;
 
