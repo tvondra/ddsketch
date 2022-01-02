@@ -5,6 +5,8 @@ SET client_min_messages = 'WARNING';
 \i ddsketch--1.0.0.sql
 SET client_min_messages = 'NOTICE';
 
+create extension lower_quantile;
+
 \set ECHO all
 
 -- SRF function implementing a simple deterministict PRNG
@@ -168,7 +170,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]::double precision[])) AS b
     FROM data
 ) foo;
 
@@ -181,7 +183,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]::double precision[])) AS b
     FROM data
 ) foo;
 
@@ -194,7 +196,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]::double precision[])) AS b
     FROM data
 ) foo;
 
@@ -251,7 +253,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -264,7 +266,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -277,7 +279,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -334,7 +336,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -347,7 +349,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 4096, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -360,7 +362,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -421,7 +423,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -435,7 +437,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -449,7 +451,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -506,7 +508,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -519,7 +521,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -532,7 +534,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -589,7 +591,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -602,7 +604,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 4096, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -615,7 +617,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -676,7 +678,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -689,7 +691,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -702,7 +704,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -760,7 +762,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -773,7 +775,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -786,7 +788,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -843,7 +845,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -856,7 +858,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -869,7 +871,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -930,7 +932,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -943,7 +945,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -956,7 +958,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1013,7 +1015,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1026,7 +1028,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1039,7 +1041,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1096,7 +1098,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1109,7 +1111,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1122,7 +1124,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1183,7 +1185,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1196,7 +1198,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1209,7 +1211,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1266,7 +1268,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1279,7 +1281,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1292,7 +1294,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1349,7 +1351,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1362,7 +1364,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1375,7 +1377,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1436,7 +1438,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1449,7 +1451,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1462,7 +1464,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1519,7 +1521,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1532,7 +1534,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1545,7 +1547,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1602,7 +1604,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1615,7 +1617,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1628,7 +1630,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1689,7 +1691,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1702,7 +1704,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1745,7 +1747,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1758,7 +1760,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1801,7 +1803,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1814,7 +1816,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1861,7 +1863,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1874,7 +1876,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1917,7 +1919,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 2048, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1930,7 +1932,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1973,7 +1975,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 16384, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -1986,7 +1988,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -2033,7 +2035,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -2062,7 +2064,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.01, 4096, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -2091,7 +2093,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.001, 32768, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -2115,7 +2117,7 @@ SELECT * FROM (
 WITH data AS (SELECT i AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
-     pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
+     pg_percentile AS (SELECT lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS b FROM data)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2132,7 +2134,7 @@ FROM (
 WITH data AS (SELECT i - 5000 AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
-     pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
+     pg_percentile AS (SELECT lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS b FROM data)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2149,7 +2151,7 @@ FROM (
 WITH data AS (SELECT i - 10000 AS x FROM generate_series(1,10000) s(i)),
      intermediate AS (SELECT ddsketch(x, 0.05, 1024)::text AS intermediate_x FROM data),
      ddsketch_parsed AS (SELECT ddsketch_percentile(intermediate_x::ddsketch, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate),
-     pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
+     pg_percentile AS (SELECT lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS b FROM data)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2212,7 +2214,7 @@ GROUP BY i % 10;
 
 WITH data AS (SELECT 1.0 + pow(z, 4) AS x FROM random_normal(10000) s(z)),
      intermediate AS (SELECT ddsketch_percentile(summary, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS a FROM intermediate_ddsketch),
-     pg_percentile AS (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY x) AS b FROM data)
+     pg_percentile AS (SELECT lower_quantile(x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) AS b FROM data)
 SELECT
     p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2246,7 +2248,7 @@ FROM (
     SELECT
         foo.p AS p,
         (SELECT ddsketch_percentile(summary, foo.p) FROM intermediate_ddsketch) AS a,
-        (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY x) AS b FROM data) AS b
+        (SELECT lower_quantile(x, p) AS b FROM data) AS b
     FROM
          (SELECT unnest(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) p) foo
 ) bar;
@@ -2261,7 +2263,7 @@ FROM (
     SELECT
         unnest(ARRAY[0.01, 0.99]) AS p,
         unnest(ddsketch_percentile(x, 0.05, 1024, ARRAY[0.01, 0.99])) AS a,
-        unnest(percentile_disc(ARRAY[0.01, 0.99]) WITHIN GROUP (ORDER BY x)) AS b
+        unnest(lower_quantile(x, ARRAY[0.01, 0.99])) AS b
     FROM data
 ) foo;
 
@@ -2354,7 +2356,7 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT lower_quantile(1.0 + x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) a FROM data_expanded) foo,
        (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.05, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
@@ -2372,7 +2374,7 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT lower_quantile(1.0 + x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) a FROM data_expanded) foo,
        (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.01, 1024, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
@@ -2390,7 +2392,7 @@ FROM (
         unnest(a) AS a,
         unnest(b) AS b
     FROM
-       (SELECT percentile_disc(ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) WITHIN GROUP (ORDER BY 1.0 + x) a FROM data_expanded) foo,
+       (SELECT lower_quantile(1.0 + x, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) a FROM data_expanded) foo,
        (SELECT ddsketch_percentile(1.0 + x, (10 + 100 * cnt)::int, 0.001, 8192, ARRAY[0.01, 0.05, 0.1, 0.9, 0.95, 0.99]) b FROM data) bar
 ) baz;
 
@@ -2667,7 +2669,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+    (SELECT lower_quantile(v, p) FROM data) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2685,7 +2687,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp) AS b
+    (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2702,7 +2704,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+    (SELECT lower_quantile(v, p) FROM data) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2719,7 +2721,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data, perc)) AS b
 ) foo;
 
 -- <value,count> API, array of percentiles
@@ -2735,7 +2737,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data_exp, perc)) AS b
 ) foo;
 
 -- <value,count> API, but count is NULL (should be treated as 1), array of percentiles
@@ -2750,7 +2752,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data, perc)) AS b
 ) foo;
 
 -- NULL handling, but this time make sure the first value is NULL
@@ -2767,7 +2769,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+    (SELECT lower_quantile(v, p) FROM data) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2785,7 +2787,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp) AS b
+    (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2802,7 +2804,7 @@ FROM (
   SELECT
     p,
     (SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, p) FROM data) AS a,
-    (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+    (SELECT lower_quantile(v, p) FROM data) AS b
   FROM
     unnest((SELECT p FROM perc)) p
 ) foo;
@@ -2819,7 +2821,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data, perc)) AS b
 ) foo;
 
 -- <value,count> API, array of percentiles
@@ -2835,7 +2837,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, data.c, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data_exp, perc)) AS b
 ) foo;
 
 -- <value,count> API, but count is NULL (should be treated as 1), array of percentiles
@@ -2850,7 +2852,7 @@ FROM (
   SELECT
     unnest((SELECT p FROM perc)) p,
     unnest((SELECT ddsketch_percentile(data.v, NULL, 0.01, 1024, perc.p) FROM data, perc)) AS a,
-    unnest((SELECT array_agg((SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data)) FROM perc)) AS b
+    unnest((SELECT lower_quantile(v, p) FROM data, perc)) AS b
 ) foo;
 
 
@@ -3010,7 +3012,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+     (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
@@ -3025,7 +3027,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp) AS b
+     (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- NULL is equal to count=1
@@ -3040,7 +3042,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+     (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- percentile_of
@@ -3096,7 +3098,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+     (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
@@ -3111,7 +3113,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data_exp) AS b
+     (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
@@ -3125,7 +3127,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+     (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- NULL is equal to count=1
@@ -3140,7 +3142,7 @@ FROM (
   SELECT
      p,
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
-     (SELECT percentile_disc(p) WITHIN GROUP (ORDER BY v) FROM data) AS b
+     (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- percentile_of
