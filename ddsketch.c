@@ -22,6 +22,7 @@
 #include <float.h>
 
 #include "postgres.h"
+#include "access/htup_details.h"
 #include "libpq/pqformat.h"
 #include "utils/array.h"
 #include "utils/lsyscache.h"
