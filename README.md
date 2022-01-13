@@ -1,5 +1,7 @@
 # ddsketch extension
 
+[![make installcheck](https://github.com/tvondra/ddsketch/actions/workflows/ci.yml/badge.svg)](https://github.com/tvondra/ddsketch/actions/workflows/ci.yml)
+
 > :warning: **Warning**: This extension is still an early WIP version, not
 > suitable for production use. The on-disk format, function signatures etc.
 > may change and so on.
