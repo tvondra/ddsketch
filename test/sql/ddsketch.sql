@@ -134,6 +134,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- functions to round double precision values (and arrays of)
+CREATE OR REPLACE FUNCTION trunc_value(v double precision, s integer = 12) RETURNS text AS $$
+SELECT substring(v::text, 1, s);
+$$ LANGUAGE sql;
+
+CREATE OR REPLACE FUNCTION trunc_value(v double precision[], s integer = 12) RETURNS text[] AS $$
+SELECT array_agg(trunc_value(v, s)) FROM unnest(v) v;
+$$ LANGUAGE sql;
+
 -----------------------------------------------------------
 -- initialize configuration validation
 -----------------------------------------------------------
@@ -2316,7 +2325,7 @@ SELECT * FROM (
 
 -- <value,count> API
 
-select ddsketch_percentile(value, count, 0.05, 1024, ARRAY[0.9, 0.95, 0.99])
+select trunc_value(ddsketch_percentile(value, count, 0.05, 1024, ARRAY[0.9, 0.95, 0.99])) as percentiles
 from (values
   (47325940488,1),
   (15457695432,2),
@@ -2676,7 +2685,7 @@ EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 
 EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
-SELECT ddsketch_percentile(v, 0.05, 1024, 0.9) FROM src_data;
+SELECT trunc_value(ddsketch_percentile(v, 0.05, 1024, 0.9)) FROM src_data;
 
 EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 SELECT ddsketch_percentile_of(v, 0.05, 1024, 0.9) FROM src_data;
@@ -3279,16 +3288,48 @@ SELECT ddsketch_union(NULL::ddsketch, NULL::ddsketch);
 -- test info functions
 WITH data AS (SELECT 0.5 + i/10000.0 AS v FROM generate_series(1,10000) s(i)),
      sketch AS (SELECT ddsketch(v, 0.05, 128) s FROM data)
-SELECT * FROM ddsketch_info((SELECT s FROM sketch));
+SELECT
+  bytes,
+  flags,
+  alpha,
+  count,
+  zero_count,
+  max_buckets,
+  negative_buckets,
+  positive_buckets,
+  trunc_value(min_indexable) as min_indexable,
+  trunc_value(max_indexable) as max_indexable
+FROM ddsketch_info((SELECT s FROM sketch));
 
 WITH data AS (SELECT 0.5 + i/10000.0 AS v FROM generate_series(1,10000) s(i)),
      sketch AS (SELECT ddsketch(v, 0.05, 128) s FROM data)
-SELECT * FROM ddsketch_buckets((SELECT s FROM sketch));
+SELECT
+  index,
+  bucket_index,
+  trunc_value(bucket_lower) as bucket_lower,
+  trunc_value(bucket_upper) as bucket_upper,
+  trunc_value(bucket_length) as bucket_length,
+  bucket_count
+FROM ddsketch_buckets((SELECT s FROM sketch));
 
-SELECT * FROM ddsketch_info(0.05);
+SELECT
+  trunc_value(min_indexable) as min_indexable,
+  trunc_value(max_indexable) as max_indexable
+FROM ddsketch_info(0.05);
 
-SELECT * FROM ddsketch_buckets(0.05, 0.5, 5);
-SELECT * FROM ddsketch_buckets(0.05, -5, -0.5);
+SELECT
+  index,
+  bucket_index,
+  trunc_value(bucket_min) as bucket_min,
+  trunc_value(bucket_min) as bucket_max
+FROM ddsketch_buckets(0.05, 0.5, 5);
+
+SELECT
+  index,
+  bucket_index,
+  trunc_value(bucket_min) as bucket_min,
+  trunc_value(bucket_min) as bucket_max
+FROM ddsketch_buckets(0.05, -5, -0.5);
 
 CREATE TABLE random_data (v double precision, i int);
 INSERT INTO random_data SELECT prng(10000, 45547, 34471541, 3, 1000000), generate_series(1,10000);
