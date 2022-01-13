@@ -4704,7 +4704,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4713,19 +4713,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
@@ -4733,7 +4733,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4742,19 +4742,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 -- NULL is equal to count=1
@@ -4762,7 +4762,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4771,19 +4771,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 -- percentile_of
@@ -4904,7 +4904,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4913,19 +4913,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
@@ -4933,7 +4933,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4942,26 +4942,26 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4970,19 +4970,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 -- NULL is equal to count=1
@@ -4990,7 +4990,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -4999,19 +4999,19 @@ FROM (
      (SELECT ddsketch_percentile(sketches.d, p) FROM sketches) AS a,
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
- round | check_error | error_info 
--------+-------------+------------
-  0.00 | t           | 
-  0.10 | t           | 
-  0.20 | t           | 
-  0.30 | t           | 
-  0.40 | t           | 
-  0.50 | t           | 
-  0.60 | t           | 
-  0.70 | t           | 
-  0.80 | t           | 
-  0.90 | t           | 
-  1.00 | t           | 
+  p   | check_error | error_info 
+------+-------------+------------
+ 0.00 | t           | 
+ 0.10 | t           | 
+ 0.20 | t           | 
+ 0.30 | t           | 
+ 0.40 | t           | 
+ 0.50 | t           | 
+ 0.60 | t           | 
+ 0.70 | t           | 
+ 0.80 | t           | 
+ 0.90 | t           | 
+ 1.00 | t           | 
 (11 rows)
 
 -- percentile_of

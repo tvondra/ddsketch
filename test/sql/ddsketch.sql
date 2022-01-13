@@ -3045,7 +3045,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3060,7 +3060,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3075,7 +3075,7 @@ WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i /
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3131,7 +3131,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3146,7 +3146,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3160,7 +3160,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
@@ -3175,7 +3175,7 @@ WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10)
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
-  round(p, 2),
+  round(p, 2) as p,
   check_relative_error(a, b, 0.05) AS check_error,
   print_relative_error(a, b, 0.05) AS error_info
 FROM (
