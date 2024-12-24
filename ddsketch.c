@@ -2951,8 +2951,7 @@ double_to_array(FunctionCallInfo fcinfo, double *d, int len)
 								  CurrentMemoryContext);
 	}
 
-	PG_RETURN_ARRAYTYPE_P(makeArrayResult(astate,
-										  CurrentMemoryContext));
+	PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
 }
 
 static double
