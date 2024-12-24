@@ -2,7 +2,7 @@
 
 -- disable the notices for the create script (shell types etc.)
 SET client_min_messages = 'WARNING';
-\i ddsketch--1.0.0.sql
+\i sql/ddsketch--1.0.0.sql
 SET client_min_messages = 'NOTICE';
 
 create extension lower_quantile;
