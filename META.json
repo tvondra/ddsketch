@@ -1,0 +1,35 @@
+{
+   "name": "ddsketch",
+   "abstract": "ddsketch, a data structure for on-line accumulation of quantiles.",
+   "description": "This PostgreSQL extension implements ddsketch, a data structure for on-line accumulation of quantiles. The algorithm is very friendly to parallel programs, fully mergeable, etc.",
+   "version": "1.0.0",
+   "maintainer": "Tomas Vondra <tomas@vondra.me>",
+   "license": "bsd",
+   "prereqs": {
+      "runtime": {
+         "requires": {
+            "PostgreSQL": "10.0.0"
+         }
+      }
+   },
+   "provides": {
+     "quantile": {
+       "file": "sql/ddsketch--1.0.0.sql",
+       "docfile" : "README.md",
+       "version": "1.0.0"
+     }
+   },
+   "resources": {
+      "repository": {
+        "url":  "https://github.com/tvondra/ddsketch.git",
+        "web":  "http://github.com/tvondra/ddsketch",
+        "type": "git"
+      }
+   },
+   "tags" : ["quantile", "median", "mean", "aggregate"],
+   "meta-spec": {
+      "version": "1.0.0",
+      "url": "http://pgxn.org/meta/spec.txt"
+   },
+   "release_status" : "unstable"
+}
