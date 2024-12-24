@@ -1,0 +1,11 @@
+Revision history for PostgreSQL extension ddsketch.
+
+1.0.1
+    - Add testing for PG 16 and 17 to CI.
+    - Fix incorrect use of Datum conversion macro.
+    - Disable CI tests on 9.6.
+    - Add META.json for PGXN packaging.
+    - Add CI workflow for automated GitHub/PGXN releases.
+
+1.0.0
+    - Initial version.
