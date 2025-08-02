@@ -12,11 +12,18 @@ jobs:
   sync-repo-to-codeberg:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: "Checkout"
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - uses: yesolutions/mirror-action@master
+      - name: "Gather facts"
+        run: |
+          echo "Repo variables:"
+          echo "  CODEBERG_URL: ${{ vars.CODEBERG_URL }}"
+          echo "  CODEBERG_USERNAME: ${{ vars.CODEBERG_USERNAME }}"
+      - name: "Sync repo"
+        uses: spyoungtech/mirror-action@master
         with:
-          REMOTE: '${{ vars.CODEBERG_URL }}.git'
+          REMOTE: "${{ vars.CODEBERG_URL }}.git"
           GIT_USERNAME: ${{ vars.CODEBERG_USERNAME }}
           GIT_PASSWORD: ${{ secrets.CODEBERG_PASSWORD }}
