@@ -22,8 +22,9 @@ jobs:
           echo "  CODEBERG_URL: ${{ vars.CODEBERG_URL }}"
           echo "  CODEBERG_USERNAME: ${{ vars.CODEBERG_USERNAME }}"
       - name: "Sync repo"
-        uses: spyoungtech/mirror-action@master
+        uses: yesolutions/mirror-action@master
         with:
-          REMOTE: "${{ vars.CODEBERG_URL }}.git"
+          REMOTE: "${{ vars.CODEBERG_URL }}"
           GIT_USERNAME: ${{ vars.CODEBERG_USERNAME }}
-          GIT_PASSWORD: ${{ secrets.CODEBERG_PASSWORD }}
+          GIT_SSH_PRIVATE_KEY: ${{ secrets.CODEBERG_SSH_KEY }}
+          GIT_SSH_NO_VERIFY_HOST: "true"
