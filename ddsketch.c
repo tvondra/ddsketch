@@ -413,13 +413,24 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 		count += buckets[i].count;
 	}
 
-	// Assert(count == state->count);
+	Assert(count == state->count);
 
 	Assert(state->npercentiles >= 0);
 	Assert(state->nvalues >= 0);
 
 	/* both can't be set at the same time */
 	Assert(!((state->npercentiles > 0) && (state->nvalues > 0)));
+
+	Assert(((state->npercentiles == 0) && (state->percentiles == NULL)) ||
+		   ((state->npercentiles > 0) && (state->percentiles != NULL)));
+
+	Assert(((state->nvalues == 0) && (state->values == NULL)) ||
+		   ((state->nvalues > 0) && (state->values != NULL)));
+
+	for (i = 0; i < state->npercentiles; i++)
+	{
+		Assert((state->percentiles[i] >= 0.0) && (state->percentiles[i] <= 1.0));
+	}
 #endif
 }
 
