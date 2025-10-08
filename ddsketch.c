@@ -879,7 +879,8 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
 
 	nbuckets_allocated = 1;
 	while (nbuckets_allocated < nbuckets)
-		nbuckets_allocated *= 2;
+		nbuckets_allocated = Max(nbuckets_allocated * 2,
+								 maxbuckets);
 
 	Assert(nbuckets_allocated <= maxbuckets);
 
