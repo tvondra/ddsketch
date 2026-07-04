@@ -2802,6 +2802,7 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	ddsketch_t  *sketch;
 	int			i;
 	int64		count;
+	int64		total_count;
 	int64		zero_count;
 	int32		flags;
 	int32		maxbuckets;
@@ -2818,17 +2819,110 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	nbuckets = pq_getmsgint(buf, sizeof(int32));
 	nbuckets_negative = pq_getmsgint(buf, sizeof(int32));
 
+	if (flags != SKETCH_DEFAULT_FLAGS)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid sketch flags %d", flags)));
+
+	if ((alpha < MIN_SKETCH_ALPHA) || (alpha > MAX_SKETCH_ALPHA) || isnan(alpha))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("alpha for ddsketch (%f) must be in [%f, %f]",
+						alpha, MIN_SKETCH_ALPHA, MAX_SKETCH_ALPHA)));
+
+	if ((maxbuckets < MIN_SKETCH_BUCKETS) || (maxbuckets > MAX_SKETCH_BUCKETS))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
+						maxbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
+
+	if (nbuckets <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of buckets (%d) for ddsketch must be positive",
+						nbuckets)));
+
+	if (nbuckets_negative < 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of negative buckets (%d) for ddsketch must not be negative",
+						nbuckets_negative)));
+
+	if (nbuckets_negative > nbuckets)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of negative buckets (%d) for ddsketch must not exceed nbuckets (%d)",
+						nbuckets_negative, nbuckets)));
+
+	if (nbuckets > maxbuckets)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("number of buckets (%d) for ddsketch must not exceed maxbuckets (%d)",
+						nbuckets, maxbuckets)));
+
+	if (count <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("count value for the ddsketch must be positive")));
+
+	if (zero_count < 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("zero_count value for the ddsketch must be positive")));
+
+	if (count < zero_count)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("zero_count value for the ddsketch must not exceed count")));
+
 	sketch = ddsketch_allocate(flags, count, alpha, zero_count,
 							   maxbuckets, nbuckets, nbuckets_negative);
 
+	total_count = zero_count;
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
 		if (i >= sketch->nbuckets)
-			elog(ERROR, "too many buckets parsed");
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("too many buckets parsed")));
 
 		sketch->buckets[i].index = pq_getmsgint(buf, sizeof(int32));
 		sketch->buckets[i].count = pq_getmsgint64(buf);
+
+		total_count += sketch->buckets[i].count;
+
+		if (sketch->buckets[i].count <= 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("count value for all buckets in a ddsketch must be positive")));
+		else if (sketch->buckets[i].count > sketch->count)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("count value of a bucket exceeds total count")));
+
+		/* negative part, sorted by index in descending order */
+		if ((i > 0) && (i < sketch->nbuckets_negative))
+		{
+			if (sketch->buckets[i-1].index <= sketch->buckets[i].index)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("negative buckets in incorrect order")));
+		}
+		else if (i > sketch->nbuckets_negative)	/* positive part */
+		{
+			if (sketch->buckets[i-1].index >= sketch->buckets[i].index)
+				ereport(ERROR,
+						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+						 errmsg("positive buckets in incorrect order")));
+		}
 	}
+
+	/* check that the total matches */
+	if (total_count != sketch->count)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("total count does not match the data (%lld != %lld)",
+						(long long) total_count, (long long) sketch->count)));
 
 	AssertCheckDDSketch(sketch);
 
