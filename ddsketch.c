@@ -3246,7 +3246,7 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 			int	min_index = ddsketch_map_index2(alpha, fabs(min_value));
 			int	max_index = ddsketch_map_index2(alpha, fabs(max_value));
 
-			fctx->max_calls = (fabs(max_index - min_index) + 1);
+			fctx->max_calls = (abs(max_index - min_index) + 1);
 			state->index = min_index;
 			state->switch_index = (max_value < 0) ? (min_index + 1) : (min_index - 1);
 			state->negative = (max_value < 0);
@@ -3258,7 +3258,7 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 
 			int	switch_index = ddsketch_map_index2(alpha, min_indexable_value);
 
-			fctx->max_calls = (fabs(max_index - switch_index) + fabs(switch_index - min_index) + 2);
+			fctx->max_calls = (abs(max_index - switch_index) + abs(switch_index - min_index) + 2);
 			state->index = min_index;
 			state->switch_index = switch_index;
 			state->negative = (min_value < 0);
