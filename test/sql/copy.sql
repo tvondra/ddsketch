@@ -1,0 +1,49 @@
+\set ECHO none
+
+-- disable the notices for the create script (shell types etc.)
+SET client_min_messages = 'WARNING';
+\i sql/ddsketch--1.0.0.sql
+\i sql/ddsketch--1.0.0--1.0.1.sql
+SET client_min_messages = 'NOTICE';
+
+CREATE TABLE ddsketch_src (id int, s ddsketch);
+CREATE TABLE ddsketch_dst (id int, s ddsketch);
+
+-- generate 100 random sketches, export/import them in text/binary mode
+DO $$
+DECLARE
+	nbuckets int;
+	alpha double precision;
+BEGIN
+
+	FOR i IN 1..100 LOOP
+
+		-- random number of buckets
+		nbuckets := 1024 + random() * 30000;
+
+		-- random alpha
+		alpha := 0.0001 + random() * (0.1 - 0.0001);
+
+		TRUNCATE ddsketch_dst;
+		TRUNCATE ddsketch_dst;
+
+		INSERT INTO ddsketch_src SELECT i, ddsketch(random(), alpha, nbuckets) FROM generate_series(1, 10000) s(x);
+
+	END LOOP;
+
+END;
+$$ LANGUAGE plpgsql;
+
+-- export in text and binary formats
+COPY ddsketch_src TO '/tmp/ddsketch_copy_text.out';
+COPY ddsketch_src TO '/tmp/ddsketch_copy_binary.out' WITH (FORMAT BINARY);
+
+-- import in text and binary formats
+COPY ddsketch_dst FROM '/tmp/ddsketch_copy_text.out';
+COPY ddsketch_dst FROM '/tmp/ddsketch_copy_binary.out' WITH (FORMAT BINARY);
+
+-- all imported values have to match the source
+SELECT
+  COUNT(*) AS count_all,
+  COUNT(CASE WHEN (src.s::text != dst.s::text) THEN 1 ELSE NULL END) AS count_mismatching
+FROM ddsketch_src src JOIN ddsketch_dst dst ON (src.id = dst.id);

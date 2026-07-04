@@ -1,0 +1,6 @@
+\set ECHO none
+ count_all | count_mismatching 
+-----------+-------------------
+       200 |                 0
+(1 row)
+

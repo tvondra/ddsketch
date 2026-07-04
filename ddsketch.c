@@ -2805,21 +2805,21 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	int64		zero_count;
 	int32		flags;
 	int32		maxbuckets;
+	int32		nbuckets;
 	int32		nbuckets_negative;
-	int32		nbuckets_positive;
 	double		alpha;
 
 	flags = pq_getmsgint(buf, sizeof(int32));
 
 	count = pq_getmsgint64(buf);
-	alpha = pq_getmsgfloat8(buf);
 	zero_count = pq_getmsgint64(buf);
+	alpha = pq_getmsgfloat8(buf);
 	maxbuckets = pq_getmsgint(buf, sizeof(int32));
+	nbuckets = pq_getmsgint(buf, sizeof(int32));
 	nbuckets_negative = pq_getmsgint(buf, sizeof(int32));
-	nbuckets_positive = pq_getmsgint(buf, sizeof(int32));
 
-	sketch = ddsketch_allocate(flags, count, alpha, zero_count, maxbuckets,
-							   nbuckets_negative, nbuckets_positive);
+	sketch = ddsketch_allocate(flags, count, alpha, zero_count,
+							   maxbuckets, nbuckets, nbuckets_negative);
 
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
