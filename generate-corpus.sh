@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-mkdir corpus
+mkdir -p corpus/in corpus/recv
 
 for id in $(seq 1 100); do
 
@@ -8,8 +8,8 @@ for id in $(seq 1 100); do
 
 	rows=$((1 + $buckets * 10))
 
-	echo $buckets $rows
+	psql -qAt -z -0 -c "select ddsketch(random(), greatest(0.0001, 0.1 * random()), $buckets) from generate_series(1, $rows)" test > corpus/in/$id
 
-	psql -qAt -c "select encode(ddsketch_send((select ddsketch(random(), greatest(0.0001, 0.1 * random()), $buckets) from generate_series(1, $rows))),'base64')" test | base64 -d > corpus/$id
+	psql -qAt -c "select encode(ddsketch_send((select ddsketch(random(), greatest(0.0001, 0.1 * random()), $buckets) from generate_series(1, $rows))),'base64')" test | base64 -d > corpus/recv/$id
 
 done

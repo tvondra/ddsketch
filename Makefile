@@ -25,9 +25,15 @@ include $(PGXS)
 FUZZ_CFLAGS = -fsanitize=fuzzer-no-link
 FUZZ_LDFLAGS = -fsanitize=fuzzer -Wl,--allow-multiple-definition
 
-FUZZ_TARGETS = fuzz_ddsketch_recv
+FUZZ_RECV_TARGETS = fuzz_ddsketch_recv
+FUZZ_IN_TARGETS = fuzz_ddsketch_in
 fuzz_ddsketch_recv_SYMBOL = ddsketch_recv
-FUZZ_OBJS = $(FUZZ_TARGETS:%=%.o)
+fuzz_ddsketch_in_SYMBOL = ddsketch_in
+FUZZ_TARGETS = $(FUZZ_RECV_TARGETS) $(FUZZ_IN_TARGETS)
+
+FUZZ_RECV_OBJS = $(FUZZ_RECV_TARGETS:%=%.o)
+FUZZ_IN_OBJS = $(FUZZ_IN_TARGETS:%=%.o)
+FUZZ_OBJS = $(FUZZ_RECV_OBJS) $(FUZZ_IN_OBJS)
 
 top_builddir=/home/user/work/postgres
 
@@ -59,11 +65,16 @@ dist:
 latest-changes.md: Changes
 	perl -e 'while (<>) {last if /^(v?\Q${DISTVERSION}\E)/; } print "Changes for v${DISTVERSION}:\n"; while (<>) { last if /^\s*$$/; s/^\s+//; print }' Changes > $@
 
-
 # Compile the harness once per target, selecting the receive function.
-$(FUZZ_OBJS): fuzz_%.o: fuzz_recv.c
+# Compile the receive harness once per target, selecting the receive function.
+$(FUZZ_RECV_OBJS): fuzz_%.o: fuzz_recv.c
 	$(CC) $(CFLAGS) $(FUZZ_CFLAGS) $(CPPFLAGS) \
 		-DFUZZ_RECV_SYMBOL=$(fuzz_$*_SYMBOL) -c -o $@ $<
+
+# Compile the input harness once per target, selecting the input function.
+$(FUZZ_IN_OBJS): fuzz_%.o: fuzz_in.c
+	$(CC) $(CFLAGS) $(FUZZ_CFLAGS) $(CPPFLAGS) \
+		-DFUZZ_IN_SYMBOL=$(fuzz_$*_SYMBOL) -c -o $@ $<
 
 $(FUZZ_TARGETS): fuzz_%: fuzz_%.o $(OBJS) $(BACKEND_ARCHIVE) $(SRV_LIBS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(LDFLAGS_EX_BE) \
