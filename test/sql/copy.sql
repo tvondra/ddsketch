@@ -24,9 +24,6 @@ BEGIN
 		-- random alpha
 		alpha := 0.0001 + random() * (0.1 - 0.0001);
 
-		TRUNCATE ddsketch_dst;
-		TRUNCATE ddsketch_dst;
-
 		INSERT INTO ddsketch_src SELECT i, ddsketch(random(), alpha, nbuckets) FROM generate_series(1, 10000) s(x);
 
 	END LOOP;
