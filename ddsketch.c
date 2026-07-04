@@ -2617,9 +2617,10 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 Datum
 ddsketch_in(PG_FUNCTION_ARGS)
 {
-	int			i, r;
+	int			r;
 	char	   *str = PG_GETARG_CSTRING(0);
 	ddsketch_t  *sketch = NULL;
+	size_t		slen;
 
 	/* ddsketch header fields */
 	int32       flags;
@@ -2631,6 +2632,8 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	int			nbuckets_negative;
 	int			header_length;
 	char	   *ptr;
+
+	slen = strlen(str);
 
 	r = sscanf(str, "flags %d count " INT64_FORMAT " alpha %lf zero_count " INT64_FORMAT " maxbuckets %d buckets %d %d%n",
 			   &flags, &count, &alpha, &zero_count, &maxbuckets,
@@ -2702,16 +2705,26 @@ ddsketch_in(PG_FUNCTION_ARGS)
 
 	count = zero_count;
 
-	i = 0;
+	nbuckets = 0;
 	while (true)
 	{
+		int		nbytes = -1;
 		int		index;
 		int64	bucket_count;
 
-		if (sscanf(ptr, " (%d, " INT64_FORMAT ")", &index, &bucket_count) != 2)
+		if (sscanf(ptr, " (%d, " INT64_FORMAT ")%n", &index, &bucket_count, &nbytes) != 2)
 			break;
 
-		if (i >= nbuckets)
+		/*
+		 * The %n might have not been assigned, in which case it kept the -1
+		 * value. Treat it as malformed input value.
+		 */
+		if (nbytes < 0)
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("failed to parse bucket")));
+
+		if (nbuckets >= sketch->nbuckets)
 			elog(ERROR, "too many buckets parsed");
 
 		/*
@@ -2720,18 +2733,18 @@ ddsketch_in(PG_FUNCTION_ARGS)
 		 *
 		 * XXX Can we check the index value is valid (not too low/high)?
 		 */
-		if ((i != 0) && (i < nbuckets_negative))
+		if ((nbuckets != 0) && (nbuckets < nbuckets_negative))
 		{
 			/* negative store - descending index values */
-			if (sketch->buckets[i-1].index <= index)
+			if (sketch->buckets[nbuckets - 1].index <= index)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("invalid sketch - ascending indexes in the negative part")));
 		}
-		else if (i  > nbuckets_negative)
+		else if (nbuckets  > nbuckets_negative)
 		{
 			/* positive store - ascending index values */
-			if (sketch->buckets[i-1].index >= index)
+			if (sketch->buckets[nbuckets - 1].index >= index)
 				ereport(ERROR,
 						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 						 errmsg("invalid sketch - descending indexes in the positive part")));
@@ -2743,22 +2756,50 @@ ddsketch_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("count value for all indexes in a ddsketch must be positive")));
 
-		sketch->buckets[i].index = index;
-		sketch->buckets[i].count = bucket_count;
+		sketch->buckets[nbuckets].index = index;
+		sketch->buckets[nbuckets].count = bucket_count;
 
 		count += bucket_count;
 
-		/* skip to the end of the centroid */
-		ptr = strchr(ptr, ')') + 1;
-		i++;
+		/*
+		 * Skip to the end of the centroid (the character after the closing
+		 * parenthesis). If this is the end of the string, stop parsing, even
+		 * if we failed to parse the right number of centroids).
+		 */
+		ptr += nbytes;
+
+		/* end of string */
+		if (*ptr == '\0')
+			break;
+
+		/* must not scan past the end of the input string */
+		Assert(ptr <= str + slen);
+
+		nbuckets++;
 	}
 
+	/*
+	 * Malformed inputs may have the wrong number of buckets, in which case
+	 * we either don't consume the whole input (nbuckets too high), or we
+	 * don't get all the expected buckets (nbuckets too high).
+	 */
+	if (ptr < str + slen)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("input ddsketch value too long")));
+
 	/* Did we parse exactly the expected number of buckets? */
-	if (i != nbuckets)
+	if (nbuckets != sketch->nbuckets)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("parsed invalid number of buckets (%d != %d)",
-						i, nbuckets)));
+						nbuckets, sketch->nbuckets)));
+
+	/*
+	 * If we consumed just the right number of buckets, we must have read
+	 * the whole input value exactly.
+	 */
+	Assert(ptr == str + strlen(str));
 
 	/* Did we get buckets matching the header? */
 	if (count != sketch->count)
@@ -2766,8 +2807,6 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("total count (%ld) does not match buckets (%ld)",
 						sketch->count, count)));
-
-	Assert(ptr == str + strlen(str));
 
 	AssertCheckDDSketch(sketch);
 
