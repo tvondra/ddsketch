@@ -27,8 +27,8 @@ FUZZ_LDFLAGS = -fsanitize=fuzzer -Wl,--allow-multiple-definition
 
 FUZZ_RECV_TARGETS = fuzz_ddsketch_recv
 FUZZ_IN_TARGETS = fuzz_ddsketch_in
-fuzz_ddsketch_recv_SYMBOL = ddsketch_recv
-fuzz_ddsketch_in_SYMBOL = ddsketch_in
+fuzz_ddsketch_recv_SYMBOL = ddsketch_recv_fuzz
+fuzz_ddsketch_in_SYMBOL = ddsketch_in_fuzz
 FUZZ_TARGETS = $(FUZZ_RECV_TARGETS) $(FUZZ_IN_TARGETS)
 
 FUZZ_RECV_OBJS = $(FUZZ_RECV_TARGETS:%=%.o)

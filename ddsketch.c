@@ -236,6 +236,9 @@ PG_FUNCTION_INFO_V1(ddsketch_out);
 PG_FUNCTION_INFO_V1(ddsketch_send);
 PG_FUNCTION_INFO_V1(ddsketch_recv);
 
+PG_FUNCTION_INFO_V1(ddsketch_in_fuzz);
+PG_FUNCTION_INFO_V1(ddsketch_recv_fuzz);
+
 PG_FUNCTION_INFO_V1(ddsketch_count);
 
 PG_FUNCTION_INFO_V1(ddsketch_add_double_increment);
@@ -286,6 +289,9 @@ Datum ddsketch_in(PG_FUNCTION_ARGS);
 Datum ddsketch_out(PG_FUNCTION_ARGS);
 Datum ddsketch_send(PG_FUNCTION_ARGS);
 Datum ddsketch_recv(PG_FUNCTION_ARGS);
+
+Datum ddsketch_in_fuzz(PG_FUNCTION_ARGS);
+Datum ddsketch_recv_fuzz(PG_FUNCTION_ARGS);
 
 Datum ddsketch_count(PG_FUNCTION_ARGS);
 
@@ -2813,6 +2819,41 @@ ddsketch_in(PG_FUNCTION_ARGS)
 }
 
 Datum
+ddsketch_in_fuzz(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch;
+	ddsketch_aggstate_t *state;
+
+	sketch = (ddsketch_t *) DatumGetPointer(ddsketch_in(fcinfo));
+
+	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
+									   sketch->maxbuckets, sketch->nbuckets);
+
+	ddsketch_merge_buckets(state, false,
+						   SKETCH_BUCKETS_NEGATIVE(sketch),
+						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
+
+	ddsketch_merge_buckets(state, true,
+						   SKETCH_BUCKETS_POSITIVE(sketch),
+						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
+
+	state->zero_count += sketch->zero_count;
+	state->count += sketch->count;
+
+	for (int i = 0; i < 1000; i++)
+	{
+		ddsketch_add(state, (i / 1000.0), 1);
+	}
+
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
+
+	PG_RETURN_POINTER(sketch);
+}
+
+Datum
 ddsketch_out(PG_FUNCTION_ARGS)
 {
 	int			i;
@@ -2963,6 +3004,41 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 						(long long) total_count, (long long) sketch->count)));
 
 	AssertCheckDDSketch(sketch);
+
+	PG_RETURN_POINTER(sketch);
+}
+
+Datum
+ddsketch_recv_fuzz(PG_FUNCTION_ARGS)
+{
+	ddsketch_t *sketch;
+	ddsketch_aggstate_t *state;
+
+	sketch = (ddsketch_t *) DatumGetPointer(ddsketch_recv(fcinfo));
+
+	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
+									   sketch->maxbuckets, sketch->nbuckets);
+
+	ddsketch_merge_buckets(state, false,
+						   SKETCH_BUCKETS_NEGATIVE(sketch),
+						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
+
+	ddsketch_merge_buckets(state, true,
+						   SKETCH_BUCKETS_POSITIVE(sketch),
+						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
+
+	state->zero_count += sketch->zero_count;
+	state->count += sketch->count;
+
+	for (int i = 0; i < 1000; i++)
+	{
+		ddsketch_add(state, (i / 1000.0), 1);
+	}
+
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+
+	AssertCheckDDSketch(sketch);
+	AssertCheckDDSketchAggState(state);
 
 	PG_RETURN_POINTER(sketch);
 }
