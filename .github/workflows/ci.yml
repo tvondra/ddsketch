@@ -14,7 +14,7 @@ jobs:
         run: pg-start ${{ matrix.pg }}
 
       - name: Check out the repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Install lower_quantile extension
         run: pgxn install lower_quantile
