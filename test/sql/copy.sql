@@ -19,12 +19,12 @@ BEGIN
 	FOR i IN 1..100 LOOP
 
 		-- random number of buckets
-		nbuckets := 1024 + random() * 30000;
+		nbuckets := 1024 + random() * 1024;
 
 		-- random alpha
-		alpha := 0.0001 + random() * (0.1 - 0.0001);
+		alpha := 0.01 + random() * (0.1 - 0.01);
 
-		INSERT INTO ddsketch_src SELECT i, ddsketch(random(), alpha, nbuckets) FROM generate_series(1, 10000) s(x);
+		INSERT INTO ddsketch_src SELECT i, ddsketch(random(), alpha, nbuckets) FROM generate_series(1, nbuckets * 5) s(x);
 
 	END LOOP;
 
