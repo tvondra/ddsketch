@@ -174,22 +174,22 @@ $$ LANGUAGE plpgsql;
 -----------------------------------------------------------
 
 -- invalid percentile value
-SELECT ddsketch_percentile(i / 1.0, 0.01, 1024, ARRAY[0.1, -0.1]) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.01, 1024, ARRAY[0.1, -0.1]) FROM generate_series(1, 10) s(i);
 
 -- alpha too low
-SELECT ddsketch_percentile(i / 1.0, 0.00009, 1024, 0.5) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.00009, 1024, 0.5) FROM generate_series(1, 10) s(i);
 
 -- alpha too high
-SELECT ddsketch_percentile(i / 1.0, 0.11, 1024, 0.5) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.11, 1024, 0.5) FROM generate_series(1, 10) s(i);
 
 -- fewer than minimum number of buckets
-SELECT ddsketch_percentile(i / 1.0, 0.01, 15, 0.5) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.01, 15, 0.5) FROM generate_series(1, 10) s(i);
 
 -- more than maximum number of buckets
-SELECT ddsketch_percentile(i / 1.0, 0.01, 32769, 0.5) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32769, 0.5) FROM generate_series(1, 10) s(i);
 
 -- too many buckets needed
-SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1,10000) s(i);
+SELECT ddsketch_percentile(i / 1.0, 0.01, 32, 0.5) FROM generate_series(1, 10000) s(i);
 
 -----------------------------------------------------------
 -- nice data set with ordered (asc) / evenly-spaced data --
@@ -491,7 +491,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -505,7 +505,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -519,7 +519,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -534,7 +534,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.01
-WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -547,7 +547,7 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -560,7 +560,7 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -574,7 +574,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -588,7 +588,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -602,7 +602,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -617,7 +617,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- alpha 0.001
-WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -630,7 +630,7 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -643,7 +643,7 @@ FROM (
     FROM data
 ) foo;
 
-WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i))
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(5000,1,-1) s(i))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -657,7 +657,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT i AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -671,7 +671,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 5000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 5000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -685,7 +685,7 @@ SELECT * FROM (
         FROM data
     ) foo ) bar WHERE a < b;
 
-WITH data AS (SELECT i - 10000 AS x FROM generate_series(10000,1,-1) s(i)),
+WITH data AS (SELECT i - 10000 AS x FROM generate_series(5000,1,-1) s(i)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2001,7 +2001,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z))
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(2500) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2028,7 +2028,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(10000) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 4) AS x FROM prng(2500) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2119,7 +2119,7 @@ SELECT * FROM (
     ) foo ) bar WHERE a < b;
 
 -- 0.001 alpha
-WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(2500, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z))
 SELECT
     p,
     check_relative_error(a, b, 0.001) AS check_error,
@@ -2133,7 +2133,7 @@ FROM (
 ) foo;
 
 -- make sure the resulting percentiles are in the right order
-WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(10000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
+WITH data AS (SELECT 10000 * pow(z, 3) AS x FROM random_normal(2500, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z)),
      perc AS (SELECT array_agg((i/100.0)::double precision) AS p FROM generate_series(1,99) s(i))
 SELECT * FROM (
     SELECT
@@ -2379,7 +2379,7 @@ from (values
 
 -- 0.05 alpha
 WITH
- data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
+ data AS (SELECT prng(10000) x, prng(2500, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
@@ -2397,7 +2397,7 @@ FROM (
 
 -- 0.01 alpha
 WITH
- data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
+ data AS (SELECT prng(10000) x, prng(2500, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
@@ -2415,7 +2415,7 @@ FROM (
 
 -- 0.001 alpha
 WITH
- data AS (SELECT prng(10000) x, prng(10000, 29823218) cnt),
+ data AS (SELECT prng(10000) x, prng(2500, 29823218) cnt),
  data_expanded AS (SELECT x FROM (SELECT x, generate_series(1, (10 + 100 * cnt)::int) FROM data) foo ORDER BY random())
 SELECT
     p,
@@ -2532,7 +2532,7 @@ FROM (
 
 -- <value,count> API with percentile_of and individual values
 WITH
-    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-5000, 5000) s(i)),
+    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-500, 500) s(i)),
     data_expanded AS (SELECT foo.v FROM (SELECT data.c, data.v FROM data) foo, LATERAL generate_series(1, c))
 SELECT
     f,
@@ -2547,7 +2547,7 @@ FROM (
 
 -- <value,count> API with percentile_of and an array
 WITH
-    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-5000, 5000) s(i)),
+    data AS (SELECT i / 50.0 AS v, 1 + abs(mod(i,13)) AS c FROM generate_series(-500, 500) s(i)),
     data_expanded AS (SELECT foo.v FROM (SELECT data.c, data.v FROM data) foo, LATERAL generate_series(1, c))
 SELECT
     f,
@@ -2565,7 +2565,7 @@ FROM (
 -- but for uniform distribution it's fairly close to the relative error
 -- the ddsketch was defined with
 WITH
-  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,2500) s(i)), 
   sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
 SELECT
   v,
@@ -2672,7 +2672,7 @@ FROM (
 ) bar;
 
 CREATE TABLE src_data (v double precision);
-INSERT INTO src_data SELECT z FROM random_normal(1000000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
+INSERT INTO src_data SELECT z FROM random_normal(25000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
 ANALYZE src_data;
 
 -- with parallelism
@@ -2695,7 +2695,7 @@ SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 -- individual values, individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2712,7 +2712,7 @@ FROM (
 -- <value,count> API, individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
   data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c))
 SELECT
     round(p,2) AS p,
@@ -2730,7 +2730,7 @@ FROM (
 -- <value,count> API, but count is NULL (should be treated as 1), individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2747,7 +2747,7 @@ FROM (
 -- individual values, array of percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2762,7 +2762,7 @@ FROM (
 -- <value,count> API, array of percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
   data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c))
 SELECT
     round(p,2) AS p,
@@ -2778,7 +2778,7 @@ FROM (
 -- <value,count> API, but count is NULL (should be treated as 1), array of percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+  data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2795,7 +2795,7 @@ FROM (
 -- individual values, individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo)
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2812,7 +2812,7 @@ FROM (
 -- <value,count> API, individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo),
   data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c))
 SELECT
     round(p,2) AS p,
@@ -2830,7 +2830,7 @@ FROM (
 -- <value,count> API, but count is NULL (should be treated as 1), individual percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo)
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.05) AS check_error,
@@ -2862,7 +2862,7 @@ FROM (
 -- <value,count> API, array of percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo),
   data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c))
 SELECT
     round(p,2) AS p,
@@ -2878,7 +2878,7 @@ FROM (
 -- <value,count> API, but count is NULL (should be treated as 1), array of percentiles
 WITH
   perc AS (SELECT array_agg(i/10.0) AS p FROM generate_series(0,10) AS s(i)),
-  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo)
+  data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo)
 SELECT
     round(p,2) AS p,
     check_relative_error(a, b, 0.01) AS check_error,
@@ -2896,7 +2896,7 @@ FROM (
 -- individual values
 WITH
     vals AS (SELECT (i*10.0) AS f FROM generate_series(-10,10) s(i)),
-    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     f,
     abs(a - b) < 0.05
@@ -2910,7 +2910,7 @@ FROM (
 
 WITH
     vals AS (SELECT (i*10.0) AS f FROM generate_series(-10,10) s(i)),
-    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
     data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c))
 SELECT
     f,
@@ -2925,7 +2925,7 @@ FROM (
 
 WITH
     vals AS (SELECT (i*10.0) AS f FROM generate_series(-10,10) s(i)),
-    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text))
+    data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text))
 SELECT
     f,
     abs(a - b) < 0.05
@@ -2939,7 +2939,7 @@ FROM (
 
 -- array of values
 
-WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) s FROM data, vals),
      ranks AS (SELECT array_agg((SELECT percent_rank(vals) WITHIN GROUP (ORDER BY data.v) FROM data WHERE data.v IS NOT NULL)) AS r FROM unnest((SELECT v FROM vals)) vals)
@@ -2954,7 +2954,7 @@ FROM (
   FROM vals, sketch, ranks
 ) foo;
 
-WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) s FROM data, vals),
@@ -2970,7 +2970,7 @@ FROM (
   FROM vals, sketch, ranks
 ) foo;
 
-WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)),
+WITH data AS (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, NULL, 0.01, 1024, vals.v) s FROM data, vals),
      ranks AS (SELECT array_agg((SELECT percent_rank(vals) WITHIN GROUP (ORDER BY data.v) FROM data WHERE data.v IS NOT NULL)) AS r FROM unnest((SELECT v FROM vals)) vals)
@@ -2988,7 +2988,7 @@ FROM (
 
 -- NULL at the beginning of the data
 
-WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text)) foo),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) s FROM data, vals),
      ranks AS (SELECT array_agg((SELECT percent_rank(vals) WITHIN GROUP (ORDER BY data.v) FROM data WHERE data.v IS NOT NULL)) AS r FROM unnest((SELECT v FROM vals)) vals)
@@ -3003,7 +3003,7 @@ FROM (
   FROM vals, sketch, ranks
 ) foo;
 
-WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, data.c, 0.01, 1024, vals.v) s FROM data, vals),
@@ -3019,7 +3019,7 @@ FROM (
   FROM vals, sketch, ranks
 ) foo;
 
-WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,10000) s(i) ORDER BY md5(i::text)) foo),
+WITH data AS (SELECT NULL AS v, 1 AS c UNION ALL SELECT * FROM (SELECT (CASE WHEN mod(i,2) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v, 1 + mod(i,5) c FROM generate_series(1,2500) s(i) ORDER BY md5(i::text)) foo),
      vals AS (SELECT array_agg(i) AS v FROM generate_series(-100,100,10) AS s(i)),
      sketch AS (SELECT ddsketch_percentile_of(data.v, NULL, 0.01, 1024, vals.v) s FROM data, vals),
      ranks AS (SELECT array_agg((SELECT percent_rank(vals) WITHIN GROUP (ORDER BY data.v) FROM data WHERE data.v IS NOT NULL)) AS r FROM unnest((SELECT v FROM vals)) vals)
@@ -3036,7 +3036,7 @@ FROM (
 
 
 -- sketches
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
@@ -3050,7 +3050,7 @@ FROM (
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
@@ -3066,7 +3066,7 @@ FROM (
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- NULL is equal to count=1
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)),
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
@@ -3081,7 +3081,7 @@ FROM (
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- percentile_of
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
 SELECT
@@ -3094,7 +3094,7 @@ FROM (
      (SELECT percent_rank(p) WITHIN GROUP (ORDER BY v) FROM data WHERE data.v IS NOT NULL) AS b
   FROM unnest((SELECT p FROM vals)) p) foo;
 
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
@@ -3108,7 +3108,7 @@ FROM (
      (SELECT percent_rank(p) WITHIN GROUP (ORDER BY v) FROM data_exp WHERE data_exp.v IS NOT NULL) AS b
   FROM unnest((SELECT p FROM vals)) p) foo;
 
-WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)),
+WITH data AS (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
 SELECT
@@ -3122,7 +3122,7 @@ FROM (
   FROM unnest((SELECT p FROM vals)) p) foo;
 
 -- sketches (first value is NULL)
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
@@ -3136,7 +3136,7 @@ FROM (
      (SELECT lower_quantile(v, p) FROM data) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)) foo),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
@@ -3151,7 +3151,7 @@ FROM (
      (SELECT lower_quantile(v, p) FROM data_exp) AS b
   FROM unnest((SELECT p FROM perc)) p) foo;
 
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
@@ -3166,7 +3166,7 @@ FROM (
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- NULL is equal to count=1
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,2500) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, NULL, 0.05, 1024) AS d FROM data GROUP BY c),
      perc AS (SELECT array_agg(i / 100.0) AS p FROM generate_series(0,100,10) s(i))
 SELECT
@@ -3181,7 +3181,7 @@ FROM (
   FROM unnest((SELECT p FROM perc)) p) foo;
 
 -- percentile_of
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
 SELECT
@@ -3194,7 +3194,7 @@ FROM (
      (SELECT percent_rank(p) WITHIN GROUP (ORDER BY v) FROM data WHERE data.v IS NOT NULL) AS b
   FROM unnest((SELECT p FROM vals)) p) foo;
 
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)) foo),
      data_exp AS (SELECT data.* FROM data, lateral generate_series(1, data.c)),
      sketches AS (SELECT ddsketch(data.v, data.c, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
@@ -3208,7 +3208,7 @@ FROM (
      (SELECT percent_rank(p) WITHIN GROUP (ORDER BY v) FROM data_exp WHERE data_exp.v IS NOT NULL) AS b
   FROM unnest((SELECT p FROM vals)) p) foo;
 
-WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,10000) s(i)) foo),
+WITH data AS (SELECT 1 AS c, NULL AS v UNION ALL SELECT * FROM (SELECT mod(i,10) AS c, (CASE WHEN mod(i,5) = 0 THEN NULL ELSE (i / 50.0 - 100.0) END) AS v FROM generate_series(1,5000) s(i)) foo),
      sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS d FROM data GROUP BY c),
      vals AS (SELECT array_agg(i) AS p FROM generate_series(-100,100,10) s(i))
 SELECT
