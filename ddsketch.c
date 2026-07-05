@@ -2310,8 +2310,8 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 Datum
 ddsketch_combine(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	 *src;
-	ddsketch_aggstate_t	 *dst;
+	ddsketch_aggstate_t	 *state1;
+	ddsketch_aggstate_t	 *state2;
 
 	MemoryContext aggcontext;
 	MemoryContext oldcontext;
@@ -2319,44 +2319,42 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 		elog(ERROR, "ddsketch_combine called in non-aggregate context");
 
-	/* the second parameter must not be NULL */
-	Assert(!PG_ARGISNULL(1));
+	state1 = (PG_ARGISNULL(0)) ? NULL : (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	state2 = (PG_ARGISNULL(1)) ? NULL : (ddsketch_aggstate_t *) PG_GETARG_POINTER(1);
 
-	/* so just grab it */
-	src = (ddsketch_aggstate_t *) PG_GETARG_POINTER(1);
+	if (state2 == NULL)
+		PG_RETURN_POINTER(state1);
 
 	/* when NULL in the first parameter, just return a copy of the second one */
-	if (PG_ARGISNULL(0))
+	if (state1 == NULL)
 	{
 		/* copy the ddsketch into the right long-lived memory context */
 		oldcontext = MemoryContextSwitchTo(aggcontext);
-		src = ddsketch_copy(src);
+		state1 = ddsketch_copy(state2);
 		MemoryContextSwitchTo(oldcontext);
 
-		AssertCheckDDSketchAggState(src);
+		AssertCheckDDSketchAggState(state1);
 
-		PG_RETURN_POINTER(src);
+		PG_RETURN_POINTER(state1);
 	}
 
-	dst = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	AssertCheckDDSketchAggState(state1);
+	AssertCheckDDSketchAggState(state2);
 
-	AssertCheckDDSketchAggState(dst);
-	AssertCheckDDSketchAggState(src);
+	ddsketch_merge_buckets(state1, false,
+						   STATE_BUCKETS_NEGATIVE(state2),
+						   STATE_BUCKETS_NEGATIVE_COUNT(state2));
 
-	ddsketch_merge_buckets(dst, false,
-						   STATE_BUCKETS_NEGATIVE(src),
-						   STATE_BUCKETS_NEGATIVE_COUNT(src));
+	ddsketch_merge_buckets(state1, true,
+						   STATE_BUCKETS_POSITIVE(state2),
+						   STATE_BUCKETS_POSITIVE_COUNT(state2));
 
-	ddsketch_merge_buckets(dst, true,
-						   STATE_BUCKETS_POSITIVE(src),
-						   STATE_BUCKETS_POSITIVE_COUNT(src));
+	state1->zero_count += state2->zero_count;
+	state1->count += state2->count;
 
-	dst->zero_count += src->zero_count;
-	dst->count += src->count;
+	AssertCheckDDSketchAggState(state1);
 
-	AssertCheckDDSketchAggState(dst);
-
-	PG_RETURN_POINTER(dst);
+	PG_RETURN_POINTER(state1);
 }
 
 /* API for incremental updates */
