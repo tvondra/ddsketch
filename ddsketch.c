@@ -324,6 +324,28 @@ static double ddsketch_map_value(ddsketch_aggstate_t *state, double index);
 #define	MIN_SKETCH_BUCKETS	16
 #define MAX_SKETCH_BUCKETS	32768
 
+#if (PG_VERSION_NUM < 160000)
+/*
+ * repalloc0
+ *		Adjust the size of a previously allocated chunk and zero out the added
+ *		space.
+ */
+static void *
+repalloc0(void *pointer, Size oldsize, Size size)
+{
+	void       *ret;
+
+	/* catch wrong argument order */
+	if (unlikely(oldsize > size))
+		elog(ERROR, "invalid repalloc0 call: oldsize %zu, new size %zu",
+			 oldsize, size);
+
+	ret = repalloc(pointer, size);
+	memset((char *) ret + oldsize, 0, (size - oldsize));
+
+	return ret;
+}
+#endif
 
 /* basic checks on the ddsketch (proper sum of counts, ...) */
 static void
@@ -692,6 +714,8 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 	 */
 	if (STATE_BUCKETS_FULL(state))
 	{
+		int32		nbuckets_old = state->nbuckets_allocated;
+
 		/* double the space for buckets, but cap by maxbuckets */
 		state->nbuckets_allocated *= 2;
 
@@ -707,8 +731,9 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
 				 state->maxbuckets);
 
 		/* otherwise reallocate the space to add space */
-		state->buckets = repalloc(state->buckets,
-								  BUCKETS_BYTES(state->nbuckets_allocated));
+		state->buckets = repalloc0(state->buckets,
+								   BUCKETS_BYTES(nbuckets_old),
+								   BUCKETS_BYTES(state->nbuckets_allocated));
 	}
 
 	/* at this point there has to be space for at least one more bucket */
@@ -900,7 +925,7 @@ ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
 	state->nbuckets_allocated = nbuckets_allocated;
 
 	/* we may need to repalloc this later */
-	state->buckets = palloc(nbuckets_allocated * sizeof(bucket_t));
+	state->buckets = palloc0(nbuckets_allocated * sizeof(bucket_t));
 
 	state->nbuckets = 0;
 	state->nbuckets_negative = 0;
@@ -1289,6 +1314,7 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 				j;
 	int			n;
 	bucket_t   *b;
+	int32		nbuckets_old;
 
 	if (nbuckets == 0)
 		return;
@@ -1358,6 +1384,8 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 		elog(ERROR, "too many buckets needed %d > %d",
 			 nbuckets, state->maxbuckets);
 
+	nbuckets_old = state->nbuckets_allocated;
+
 	/* grow the number of buckets to allocate */
 	while (state->nbuckets_allocated < nbuckets)
 		state->nbuckets_allocated *= 2;
@@ -1366,8 +1394,9 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 	state->nbuckets_allocated = Min(state->nbuckets_allocated,
 									state->maxbuckets);
 
-	state->buckets = repalloc(state->buckets,
-							  BUCKETS_BYTES(state->nbuckets_allocated));
+	state->buckets = repalloc0(state->buckets,
+							   BUCKETS_BYTES(nbuckets_old),
+							   BUCKETS_BYTES(state->nbuckets_allocated));
 
 	/*
 	 * Copy the sorted array back into the state (for the negative case we
