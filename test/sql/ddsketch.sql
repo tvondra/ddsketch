@@ -2672,7 +2672,9 @@ FROM (
 ) bar;
 
 CREATE TABLE src_data (v double precision);
-INSERT INTO src_data SELECT z FROM random_normal(25000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
+
+-- small amount of data, to allow weird cases when combining per-worker states
+INSERT INTO src_data SELECT z FROM random_normal(1000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
 ANALYZE src_data;
 
 -- with parallelism
@@ -2683,7 +2685,27 @@ EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
 SELECT trunc_value(ddsketch_percentile(v, 0.05, 1024, 0.9)) FROM src_data;
 
 EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
-SELECT ddsketch_percentile_of(v, 0.05, 1024, 0.9) FROM src_data;
+SELECT trunc_value(ddsketch_percentile_of(v, 0.05, 1024, 0.9)) FROM src_data;
+
+-- without  parallelism
+SET max_parallel_workers_per_gather = 0;
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+
+-- add more data
+INSERT INTO src_data SELECT z FROM random_normal(24000, mean := 0.0, stddev := 0.1, minval := -1.0, maxval := 1.0) s(z);
+ANALYZE src_data;
+
+-- with parallelism
+SET max_parallel_workers_per_gather = 2;
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT trunc_value(ddsketch_percentile(v, 0.05, 1024, 0.9)) FROM src_data;
+
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.05, 1024) FROM src_data;
+SELECT trunc_value(ddsketch_percentile_of(v, 0.05, 1024, 0.9)) FROM src_data;
 
 -- without  parallelism
 SET max_parallel_workers_per_gather = 0;
