@@ -2758,6 +2758,7 @@ ddsketch_in(PG_FUNCTION_ARGS)
 
 		sketch->buckets[nbuckets].index = index;
 		sketch->buckets[nbuckets].count = bucket_count;
+		nbuckets++;
 
 		count += bucket_count;
 
@@ -2774,8 +2775,6 @@ ddsketch_in(PG_FUNCTION_ARGS)
 
 		/* must not scan past the end of the input string */
 		Assert(ptr <= str + slen);
-
-		nbuckets++;
 	}
 
 	/*
