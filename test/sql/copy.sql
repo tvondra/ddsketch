@@ -36,3 +36,6 @@ SELECT
   COUNT(*) AS count_all,
   COUNT(CASE WHEN (src.s::text != dst.s::text) THEN 1 ELSE NULL END) AS count_mismatching
 FROM ddsketch_src src JOIN ddsketch_dst dst ON (src.id = dst.id);
+
+DROP TABLE ddsketch_src;
+DROP TABLE ddsketch_dst;

@@ -37,3 +37,5 @@ FROM ddsketch_src src JOIN ddsketch_dst dst ON (src.id = dst.id);
        200 |                 0
 (1 row)
 
+DROP TABLE ddsketch_src;
+DROP TABLE ddsketch_dst;
