@@ -41,4 +41,74 @@ INSERT INTO digest_combine_test SELECT 2, ddsketch(v * random(), 0.02, 1000) FRO
 EXPLAIN (COSTS OFF) SELECT ddsketch(d) FROM digest_combine_test;
 SELECT ddsketch(d) FROM digest_combine_test;
 
+-- do some randomized testing (but be careful not to generate sketches
+-- with too few buckets)
+DO $$
+DECLARE
+    v_scale_1  INT;
+    v_scale_2  INT;
+    v_alpha    DOUBLE PRECISION;
+    v_buckets  INT;
+    v_rows     INT;
+    v_rec      RECORD;
+BEGIN
+
+    FOR v_scale_1 IN 2..5 LOOP
+
+        FOR v_scale_2 IN 2..5 LOOP
+
+            FOR r IN 1..10 LOOP
+
+                TRUNCATE digest_combine_test;
+
+                -- the same alpha value for both sketches
+                v_alpha := random() * 0.1; -- max alpha = 0.1
+                v_alpha := GREATEST(0.01, LEAST(v_alpha, 0.1));
+
+                -- first random ddsketch
+                v_buckets := pow(10, v_scale_1) + (random() * pow(10, (v_scale_1 + 1)))::int;
+                v_buckets := GREATEST(500, LEAST(v_buckets, 32768));
+
+                v_rows := (random() * v_buckets * 10);
+                v_rows := GREATEST(100, LEAST(v_rows, 100000));
+
+                -- RAISE NOTICE '% % %', v_alpha, v_buckets, v_rows;
+
+                INSERT INTO digest_combine_test SELECT 1, ddsketch(v * random(), v_alpha, v_buckets) FROM generate_series(1, v_rows) v;
+
+                -- second random ddsketch
+                v_buckets := pow(10, v_scale_1) + (random() * pow(10, (v_scale_1 + 1)))::int;
+                v_buckets := GREATEST(500, LEAST(v_buckets, 32768));
+
+                v_rows := (random() * v_buckets * 10);
+                v_rows := GREATEST(100, LEAST(v_rows, 100000));
+
+                -- RAISE NOTICE '% % %', v_alpha, v_buckets, v_rows;
+
+                INSERT INTO digest_combine_test SELECT 2, ddsketch(v * random(), v_alpha, v_buckets) FROM generate_series(1, v_rows) v;
+
+                -- duplicate the data enough times to reliably trigger partitionwise aggregate
+                INSERT INTO digest_combine_test SELECT * FROM digest_combine_test;
+                INSERT INTO digest_combine_test SELECT * FROM digest_combine_test;
+                INSERT INTO digest_combine_test SELECT * FROM digest_combine_test;
+                INSERT INTO digest_combine_test SELECT * FROM digest_combine_test;
+
+                ANALYZE digest_combine_test;
+
+                -- FOR v_rec IN EXPLAIN SELECT ddsketch(d) FROM digest_combine_test LOOP
+                --    RAISE NOTICE '%', v_rec."QUERY PLAN";
+                -- END LOOP;
+
+                -- tdigest_combine(d1, d2)
+                PERFORM ddsketch(d) FROM digest_combine_test;
+
+            END LOOP;
+
+        END LOOP;
+
+    END LOOP;
+
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TABLE digest_combine_test;
