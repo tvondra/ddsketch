@@ -1427,6 +1427,9 @@ ddsketch_merge_buckets(ddsketch_aggstate_t *state,
 		STATE_BUCKETS_USED(state) = STATE_BUCKETS_POSITIVE_COUNT(state) + n;
 		STATE_BUCKETS_NEGATIVE_COUNT(state) = n;
 	}
+
+	/* free the working array */
+	pfree(b);
 }
 
 /*
