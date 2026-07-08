@@ -5233,35 +5233,35 @@ WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
 )
 SELECT ddsketch(sketches.s) FROM sketches;
-ERROR:  state and sketch are not compatible: alpha 0.010000 != 0.050000
+ERROR:  can't merge sketches with different alpha values
 WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
     UNION ALL
     SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
 )
 SELECT ddsketch_percentile(sketches.s, 0.9) FROM sketches;
-ERROR:  state and sketch are not compatible: alpha 0.010000 != 0.050000
+ERROR:  can't merge sketches with different alpha values
 WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
     UNION ALL
     SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
 )
 SELECT ddsketch_percentile(sketches.s, ARRAY[0.95, 0.99]) FROM sketches;
-ERROR:  state and sketch are not compatible: alpha 0.010000 != 0.050000
+ERROR:  can't merge sketches with different alpha values
 WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
     UNION ALL
     SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
 )
 SELECT ddsketch_percentile_of(sketches.s, 95) FROM sketches;
-ERROR:  state and sketch are not compatible: alpha 0.010000 != 0.050000
+ERROR:  can't merge sketches with different alpha values
 WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
     UNION ALL
     SELECT ddsketch(i/100.0, 0.05, 1024) AS s FROM generate_series(1,10000) s(i)
 )
 SELECT ddsketch_percentile_of(sketches.s, ARRAY[95, 99]) FROM sketches;
-ERROR:  state and sketch are not compatible: alpha 0.010000 != 0.050000
+ERROR:  can't merge sketches with different alpha values
 WITH sketches AS (
     SELECT ddsketch(i/100.0, 0.01, 1024) AS s FROM generate_series(1,10000) s(i)
 )

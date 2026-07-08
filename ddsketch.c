@@ -1498,8 +1498,7 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 
 	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
-		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
-			 state->alpha, sketch->alpha);
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
@@ -1584,8 +1583,7 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 
 	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
-		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
-			 state->alpha, sketch->alpha);
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
@@ -1940,8 +1938,7 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 
 	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
-		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
-			 state->alpha, sketch->alpha);
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
@@ -2022,8 +2019,7 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 
 	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
-		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
-			 state->alpha, sketch->alpha);
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
@@ -2341,6 +2337,10 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	AssertCheckDDSketchAggState(state1);
 	AssertCheckDDSketchAggState(state2);
 
+	/* check that the two sketches are compatible */
+	if (state1->alpha != state2->alpha)
+		elog(ERROR, "can't merge sketches with different alpha values");
+
 	ddsketch_merge_buckets(state1, false,
 						   STATE_BUCKETS_NEGATIVE(state2),
 						   STATE_BUCKETS_NEGATIVE_COUNT(state2));
@@ -2622,6 +2622,10 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 
 	AssertCheckDDSketch(sketch);
 	AssertCheckDDSketchAggState(state);
+
+	/* check that the two sketches are compatible */
+	if (sketch->alpha != state->alpha)
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	/* copy data from sketch to aggstate */
 	ddsketch_merge_buckets(state, false,
@@ -3656,8 +3660,7 @@ ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS)
 
 	/* check that the sketch and aggstate are compatible */
 	if (state->alpha != sketch->alpha)
-		elog(ERROR, "state and sketch are not compatible: alpha %lf != %lf",
-			 state->alpha, sketch->alpha);
+		elog(ERROR, "can't merge sketches with different alpha values");
 
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),

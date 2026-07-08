@@ -1,0 +1,53 @@
+-- partitioned table: two partitions, each containing a sketch with vastly
+-- different alpha values and bucket counts
+CREATE TABLE digest_combine_test(k int, d ddsketch) PARTITION BY LIST (k);
+CREATE TABLE digest_combine_test_1 PARTITION OF digest_combine_test FOR VALUES IN (1);
+CREATE TABLE digest_combine_test_2 PARTITION OF digest_combine_test FOR VALUES IN (2);
+DO $$
+DECLARE
+    v_version numeric;
+BEGIN
+
+    SELECT substring(setting from '\d+')::numeric INTO v_version FROM pg_settings WHERE name = 'server_version';
+
+    -- GUCs common for all versions
+    PERFORM set_config('parallel_setup_cost', '0', false);
+    PERFORM set_config('parallel_tuple_cost', '0', false);
+    PERFORM set_config('max_parallel_workers_per_gather', '2', false);
+
+    -- 9.6 used somewhat different GUC name for relation size
+    IF v_version < 10 THEN
+        PERFORM set_config('min_parallel_relation_size', '0', false);
+    ELSE
+        PERFORM set_config('min_parallel_table_scan_size', '0', false);
+    END IF;
+
+    -- parallel_leader_participation and enable_partitionwise_aggregate
+    -- were introduced in 11
+    IF v_version >= 11 THEN
+        PERFORM set_config('parallel_leader_participation', 'off', false);
+        PERFORM set_config('enable_partitionwise_aggregate', 'on', false);
+    END IF;
+
+END;
+$$ LANGUAGE plpgsql;
+-- incompatible sketches in each partition
+INSERT INTO digest_combine_test SELECT 1, ddsketch(v * random(), 0.01, 1000) FROM generate_series(1, 1000) v;
+INSERT INTO digest_combine_test SELECT 2, ddsketch(v * random(), 0.02, 1000) FROM generate_series(1, 1000) v;
+-- ddsketch_combine(d1, d2)
+EXPLAIN (COSTS OFF) SELECT ddsketch(d) FROM digest_combine_test;
+                                        QUERY PLAN                                        
+------------------------------------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Parallel Append
+               ->  Partial Aggregate
+                     ->  Parallel Seq Scan on digest_combine_test_1 digest_combine_test
+               ->  Partial Aggregate
+                     ->  Parallel Seq Scan on digest_combine_test_2 digest_combine_test_1
+(8 rows)
+
+SELECT ddsketch(d) FROM digest_combine_test;
+ERROR:  can't merge sketches with different alpha values
+DROP TABLE digest_combine_test;
