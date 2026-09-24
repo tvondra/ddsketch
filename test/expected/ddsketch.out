@@ -3092,11 +3092,11 @@ ERROR:  count value for all indexes in a ddsketch must be positive
 LINE 1: select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbu...
                ^
 select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbuckets 128 buckets 51 0 (-75, 1) (-72, 1) (-68, 1) (-58, 1) (-51, 1) (-48, 1) (-46, 1) (-44, 1) (-43, 1) (-42, 1) (-40, 2) (-39, 1) (-38, 3) (-37, 4) (-36, 1) (-35, 2) (-34, 4) (-33, 2) (-32, 6) (-31, 9) (-30, 5) (-29, 4) (-28, 6) (-27, 9) (-26, 12) (-25, 8) (-24, 4) (-23, 8) (-22, 14) (-21, 8) (-20, 10) (-19, 13) (-18, 23) (-17, 13) (-16, 25) (-15, 20) (-14, 22) (-13, 20) (-12, 28) (-11, 28) (-10, 40) (-9, 35) (-8, 45) (-7, 48) (-6, 54) (-5, 61) (-4, 68) (-3, 79) (-2, 75) (-1, 77) (0, 94) (1, 10)'::ddsketch;
-ERROR:  too many buckets parsed
+ERROR:  input ddsketch value too long
 LINE 1: select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbu...
                ^
 select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbuckets 128 buckets 51 0 (-75, 1) (-72, 1) (-68, 1) (-58, 1) (-51, 1) (-48, 1) (-46, 1) (-44, 1) (-43, 1) (-42, 1) (-40, 2) (-39, 1) (-38, 3) (-37, 4) (-36, 1) (-35, 2) (-34, 4) (-33, 2) (-32, 6) (-31, 9) (-30, 5) (-29, 4) (-28, 6) (-27, 9) (-26, 12) (-25, 8) (-24, 4) (-23, 8) (-22, 14) (-21, 8) (-20, 10) (-19, 13) (-18, 23) (-17, 13) (-16, 25) (-15, 20) (-14, 22) (-13, 20) (-12, 28) (-11, 28) (-10, 40) (-9, 35) (-8, 45) (-7, 48) (-6, 54) (-5, 61) (-4, 68) (-3, 79) (-2, 75) (-1, 171)'::ddsketch;
-ERROR:  parsed invalid number of buckets (50 != 51)
+ERROR:  failed to parse t-digest value, missing space
 LINE 1: select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbu...
                ^
 -- invalid indexes in negative/positive count
