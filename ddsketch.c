@@ -2118,7 +2118,7 @@ ddsketch_in(PG_FUNCTION_ARGS)
 				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
 						maxbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
 
-	if (nbuckets <= 0)
+	if (nbuckets < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of buckets (%d) for ddsketch must be positive",
@@ -2330,7 +2330,7 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 				 errmsg("number of buckets (%d) for ddsketch must be in [%d, %d]",
 						maxbuckets, MIN_SKETCH_BUCKETS, MAX_SKETCH_BUCKETS)));
 
-	if (nbuckets <= 0)
+	if (nbuckets < 0)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("number of buckets (%d) for ddsketch must be positive",

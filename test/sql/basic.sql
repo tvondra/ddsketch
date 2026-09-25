@@ -121,27 +121,27 @@ FROM ddsketch_buckets(0.05, -5, -0.5);
 
 -- 5e-324 is below min_indexable_value, so it goes to the zero bucket.
 -- The sketch below has count = 2, zero_count = 2, nbuckets = 0.
-SELECT (ddsketch(v, 0.05, 1024))::text AS before
+SELECT (ddsketch(v, 0.05, 1024))::text::ddsketch AS before
   FROM (VALUES (5e-324::float8), (-5e-324::float8)) t(v);
 
 -- Adding one ordinary value must yield count = 3, zero_count = 2.
 -- expected: "count 3 ... zero_count 2 ... buckets 1 0 (0, 1)"
 SELECT ddsketch_add((SELECT ddsketch(v, 0.05, 1024)
                        FROM (VALUES (5e-324::float8), (-5e-324::float8)) t(v)),
-                    1.0, 0.05, 1024)::text AS after;
+                    1.0, 0.05, 1024)::text::ddsketch AS after;
 
 -- a sketch with two negative buckets and no positive ones:
 --   "... buckets 2 2 (7, 1) (0, 1)"   (nbuckets = 2, nbuckets_negative = 2)
-SELECT (ddsketch(v, 0.05, 1024))::text AS before
+SELECT (ddsketch(v, 0.05, 1024))::text::ddsketch AS before
   FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v);
 
 -- expected: "buckets 3 2 (7, 1) (0, 1) (17, 1)"
 SELECT ddsketch_add((SELECT ddsketch(v, 0.05, 1024)
                        FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v)),
-                    5.0, 0.05, 1024)::text AS after;
+                    5.0, 0.05, 1024)::text::ddsketch AS after;
 
 -- same through ddsketch_union()'
 SELECT ddsketch_union((SELECT ddsketch(v, 0.05, 1024)
                          FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v)),
                       (SELECT ddsketch(v, 0.05, 1024)
-                         FROM (VALUES (5.0::float8)) t(v)))::text;
+                         FROM (VALUES (5.0::float8)) t(v)))::text::ddsketch;
