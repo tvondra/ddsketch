@@ -133,3 +133,11 @@ END$$;
 -- compare the results
 WITH x AS (SELECT a, ddsketch(i, 0.05, 1024) AS d FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a)
 SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d)::text FROM x);
+
+-- Counts in both stores must retain all 64 bits.
+SELECT bucket_count
+FROM ddsketch_buckets((
+    SELECT ddsketch(v, n, 0.05, 16)
+    FROM (VALUES (-1.0, 2147483648::bigint), (1.0, 4294967297::bigint)) t(v, n)
+))
+ORDER BY index;

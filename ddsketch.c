@@ -2737,7 +2737,7 @@ ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
 		}
 
 		values[4] = Float8GetDatum(fabs(upper_bound - lower_bound));
-		values[5] = Int32GetDatum(bucket->count);
+		values[5] = Int64GetDatum(bucket->count);
 
 		/* Build and return the result tuple. */
 		resultTuple = heap_form_tuple(tupdesc, values, nulls);
