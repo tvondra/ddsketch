@@ -1484,6 +1484,13 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(v);
 }
 
+/*
+ * XXX Unlike the other "input" functions (ddsketch_in/ddsketch_recv), this
+ * does not validate the sketch at all. We assume this function is used only
+ * on data we created in the same query (possibly in a parallel worker),
+ * and not on untrusted values controlled by the user (which is why the other
+ * input functions need the validation).
+ */
 Datum
 ddsketch_deserial(PG_FUNCTION_ARGS)
 {
