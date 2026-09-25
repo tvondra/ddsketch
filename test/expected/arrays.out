@@ -1,0 +1,13 @@
+-- Empty arrays and NULL elements must identify the offending argument.
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[]::float8[], 0.05, 16);
+ERROR:  the array must not be empty
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), ARRAY[]::float8[]);
+ERROR:  the array must not be empty
+SELECT ddsketch_percentile_of(ddsketch(1.0, 0.05, 16), ARRAY[]::float8[]);
+ERROR:  the array must not be empty
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, NULL]::float8[], 0.05, 16);
+ERROR:  NULL not allowed as an element
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), ARRAY[0.5, NULL]::float8[]);
+ERROR:  NULL not allowed as a percentile value
+SELECT ddsketch_percentile_of(ddsketch(1.0, 0.05, 16), ARRAY[1.0, NULL]::float8[]);
+ERROR:  NULL not allowed as a value
