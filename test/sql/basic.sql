@@ -27,6 +27,15 @@ SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'NaN'::float8);
 SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), '-Infinity'::float8);
 SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'Infinity'::float8);
 
+-- invalid parameters
+SELECT * FROM ddsketch_buckets(0.0::float8, 1.0, 2.0);
+SELECT * FROM ddsketch_buckets('NaN'::float8, 1.0, 2.0);
+SELECT * FROM ddsketch_buckets(1e-300::float8, 1.0, 2.0);
+
+SELECT * FROM ddsketch_info(0.0::float8);
+SELECT * FROM ddsketch_info(2.0::float8);
+SELECT * FROM ddsketch_info(-1.0::float8);
+
 -- test various cases of invalid ddsketch text representations
 
 -- invalid flags
