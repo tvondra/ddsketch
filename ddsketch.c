@@ -199,24 +199,16 @@ typedef struct ddsketch_aggstate_t {
 	((state)->buckets + (state)->nbuckets_negative)
 
 /* prototypes */
-PG_FUNCTION_INFO_V1(ddsketch_add_double_array);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_array_count);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_array_values);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_array_values_count);
 PG_FUNCTION_INFO_V1(ddsketch_add_double);
 PG_FUNCTION_INFO_V1(ddsketch_add_double_count);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_values);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_values_count);
 
-PG_FUNCTION_INFO_V1(ddsketch_add_sketch_array);
-PG_FUNCTION_INFO_V1(ddsketch_add_sketch_array_values);
 PG_FUNCTION_INFO_V1(ddsketch_add_sketch);
-PG_FUNCTION_INFO_V1(ddsketch_add_sketch_values);
 
 PG_FUNCTION_INFO_V1(ddsketch_array_percentiles);
 PG_FUNCTION_INFO_V1(ddsketch_array_percentiles_of);
 PG_FUNCTION_INFO_V1(ddsketch_percentiles);
 PG_FUNCTION_INFO_V1(ddsketch_percentiles_of);
+
 PG_FUNCTION_INFO_V1(ddsketch_sketch);
 
 PG_FUNCTION_INFO_V1(ddsketch_serial);
@@ -240,28 +232,13 @@ PG_FUNCTION_INFO_V1(ddsketch_sketch_buckets);
 PG_FUNCTION_INFO_V1(ddsketch_param_info);
 PG_FUNCTION_INFO_V1(ddsketch_param_buckets);
 
-PG_FUNCTION_INFO_V1(ddsketch_add_double_trimmed);
-PG_FUNCTION_INFO_V1(ddsketch_add_double_count_trimmed);
-PG_FUNCTION_INFO_V1(ddsketch_add_sketch_trimmed);
-PG_FUNCTION_INFO_V1(ddsketch_trimmed_avg);
-PG_FUNCTION_INFO_V1(ddsketch_trimmed_sum);
-
 PG_FUNCTION_INFO_V1(ddsketch_sketch_sum);
 PG_FUNCTION_INFO_V1(ddsketch_sketch_avg);
 
-Datum ddsketch_add_double_array(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_array_count(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_array_values(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double(PG_FUNCTION_ARGS);
 Datum ddsketch_add_double_count(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_values(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_values_count(PG_FUNCTION_ARGS);
 
-Datum ddsketch_add_sketch_array(PG_FUNCTION_ARGS);
-Datum ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS);
 Datum ddsketch_add_sketch(PG_FUNCTION_ARGS);
-Datum ddsketch_add_sketch_values(PG_FUNCTION_ARGS);
 
 Datum ddsketch_array_percentiles(PG_FUNCTION_ARGS);
 Datum ddsketch_array_percentiles_of(PG_FUNCTION_ARGS);
@@ -290,12 +267,6 @@ Datum ddsketch_sketch_info(PG_FUNCTION_ARGS);
 Datum ddsketch_sketch_buckets(PG_FUNCTION_ARGS);
 Datum ddsketch_param_info(PG_FUNCTION_ARGS);
 Datum ddsketch_param_buckets(PG_FUNCTION_ARGS);
-
-Datum ddsketch_add_double_trimmed(PG_FUNCTION_ARGS);
-Datum ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS);
-Datum ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS);
-Datum ddsketch_trimmed_avg(PG_FUNCTION_ARGS);
-Datum ddsketch_trimmed_sum(PG_FUNCTION_ARGS);
 
 Datum ddsketch_sketch_sum(PG_FUNCTION_ARGS);
 Datum ddsketch_sketch_avg(PG_FUNCTION_ARGS);
@@ -1125,33 +1096,6 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(state);
 }
 
-/*
- * guard stubs for the functions removed by the API rework
- */
-static void
-ddsketch_upgrade_required(void)
-{
-	ereport(ERROR,
-			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
-			 errmsg("function is no longer supported by the ddsjetcg extension"),
-			 errhint("The shared library has been upgraded but the SQL definitions have not. "
-					 "Run \"ALTER EXTENSION ddsketch UPDATE\".")));
-}
-
-Datum
-ddsketch_add_double_values(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
 /* merge buckets into the aggregate state */
 static void
 ddsketch_merge_buckets(ddsketch_aggstate_t *state,
@@ -1348,55 +1292,6 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	PG_FREE_IF_COPY(sketch, 1);
 
 	PG_RETURN_POINTER(state);
-}
-
-Datum
-ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_array(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
 }
 
 /*
@@ -2960,27 +2855,6 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 		SRF_RETURN_DONE(fctx);
 }
 
-Datum
-ddsketch_add_double_trimmed(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
 /*
  * Calculate trimmed aggregates from buckets.
  */
@@ -3054,20 +2928,6 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 
 	*sump = sum;
 	*countp = count;
-}
-
-Datum
-ddsketch_trimmed_avg(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
-}
-
-Datum
-ddsketch_trimmed_sum(PG_FUNCTION_ARGS)
-{
-	ddsketch_upgrade_required();
-	PG_RETURN_NULL();
 }
 
 /*
