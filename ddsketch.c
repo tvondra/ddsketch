@@ -1106,7 +1106,7 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 
 	/* can't add values with non-positive counts */
 	if (count <= 0)
-		elog(ERROR, "invalid count value %ld, must be a positive value", count);
+		elog(ERROR, "invalid count value " INT64_FORMAT ", must be a positive value", count);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
@@ -1793,7 +1793,7 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 
 	/* can't add values with non-positive counts */
 	if (count <= 0)
-		elog(ERROR, "invalid count value %ld, must be a positive value", count);
+		elog(ERROR, "invalid count value " INT64_FORMAT ", must be a positive value", count);
 
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
@@ -2275,7 +2275,7 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	if (count != sketch->count)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("total count (%ld) does not match buckets (%ld)",
+				 errmsg("total count (" INT64_FORMAT ") does not match buckets (" INT64_FORMAT ")",
 						sketch->count, count)));
 
 	AssertCheckDDSketch(sketch);
