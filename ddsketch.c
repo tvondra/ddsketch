@@ -955,11 +955,18 @@ check_percentiles(const double *percentiles, int npercentiles)
 }
 
 /* check that the user-specified sketch parameters are valid */
+
+static void
+check_alpha(double alpha)
+{
+	if (!((alpha >= MIN_SKETCH_ALPHA) && (alpha <= MAX_SKETCH_ALPHA)))
+			elog(ERROR, "invalid alpha value %f", alpha);
+}
+
 static void
 check_sketch_parameters(double alpha, int nbuckets)
 {
-	if (!((alpha >= MIN_SKETCH_ALPHA) && (alpha <= MAX_SKETCH_ALPHA)))
-		elog(ERROR, "invalid alpha value %f", alpha);
+	check_alpha(alpha);
 
 	if (nbuckets < MIN_SKETCH_BUCKETS || nbuckets > MAX_SKETCH_BUCKETS)
 		elog(ERROR, "invalid number of buckets %d", nbuckets);
@@ -2694,6 +2701,8 @@ ddsketch_param_info(PG_FUNCTION_ARGS)
 	if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 		elog(ERROR, "return type must be a row type");
 
+	check_alpha(alpha);
+
 	gamma = (1 + alpha) / (1 - alpha);
 	min_indexable_value = DBL_MIN * gamma;
 	max_indexable_value = DBL_MAX / gamma;
@@ -2733,10 +2742,16 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 		MemoryContext mctx;
 		ddsketch_buckets_state_t *state;
 
-		double	gamma = (1 + alpha) / (1 - alpha);
+		double	gamma,
+				min_indexable_value,
+				max_indexable_value;
 
-		double	min_indexable_value = (DBL_MIN * gamma),
-				max_indexable_value = (DBL_MAX / gamma);
+		check_alpha(alpha);
+
+		/* now that we know alpha is OK, calculate the other parameters */
+		gamma = (1 + alpha) / (1 - alpha);
+		min_indexable_value = (DBL_MIN * gamma);
+		max_indexable_value = (DBL_MAX / gamma);
 
 		fctx = SRF_FIRSTCALL_INIT();
 
