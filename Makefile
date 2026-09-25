@@ -9,7 +9,7 @@ MODULE_big = ddsketch
 OBJS = ddsketch.o
 
 EXTENSION = ddsketch
-DATA = sql/ddsketch--1.0.0.sql sql/ddsketch--1.0.0--1.0.1.sql sql/ddsketch--1.0.1--1.0.2-dev.sql
+DATA = sql/ddsketch--1.0.0.sql sql/ddsketch--1.0.0--1.0.1.sql sql/ddsketch--1.0.1--1.0.2-dev.sql sql/ddsketch--1.1.0-dev.sql
 MODULES = ddsketch
 
 CFLAGS=`pg_config --includedir-server`
