@@ -1572,7 +1572,10 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 									   sketch->maxbuckets, sketch->nbuckets);
 
 	state->count = sketch->count;
+	state->zero_count = sketch->zero_count;
+
 	state->nbuckets = sketch->nbuckets;
+	state->nbuckets_negative = sketch->nbuckets_negative;
 
 	/* copy data from the ddsketch into the aggstate */
 	memcpy(STATE_BUCKETS(state), SKETCH_BUCKETS_NEGATIVE(sketch),
