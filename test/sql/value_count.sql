@@ -1,5 +1,13 @@
 -- <value,count> API
 
+-- should reject negative counts
+SELECT ddsketch_add(ddsketch_add(NULL::ddsketch, 1.0, 0.05, 1024),
+                    2.0, -5::bigint, 0.05, 1024)::text;
+
+-- should also reject zero counts
+SELECT ddsketch_add(ddsketch_add(NULL::ddsketch, 1.0, 0.05, 1024),
+                    2.0, 0::bigint, 0.05, 1024)::text;
+
 select trunc_value(ddsketch_percentile(ddsketch(value, count, 0.05, 1024), ARRAY[0.9, 0.95, 0.99])) as percentiles
 from (values
   (47325940488,1),

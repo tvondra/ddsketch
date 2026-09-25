@@ -1732,6 +1732,10 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 
 	AssertCheckDDSketchAggState(state);
 
+	/* can't add values with non-positive counts */
+	if (count <= 0)
+		elog(ERROR, "invalid count value %ld, must be a positive value", count);
+
 	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
 
 	AssertCheckDDSketchAggState(state);
