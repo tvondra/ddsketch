@@ -1,0 +1,9 @@
+-- A target-list SRF and LIMIT also keep the unfixed NaN cases bounded.
+SELECT ddsketch_buckets(0.05, 'NaN'::float8, 1.0) LIMIT 1;
+ERROR:  invalid range (nan, 1.000000e+00)
+SELECT ddsketch_buckets(0.05, -1.0, 'NaN'::float8) LIMIT 1;
+ERROR:  invalid range (-1.000000e+00, nan)
+SELECT ddsketch_buckets(0.05, '-Infinity'::float8, 1.0) LIMIT 1;
+ERROR:  invalid range (-inf, 1.000000e+00)
+SELECT ddsketch_buckets(0.05, -1.0, 'Infinity'::float8) LIMIT 1;
+ERROR:  invalid range (-1.000000e+00, inf)
