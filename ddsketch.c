@@ -1284,6 +1284,14 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
 
+	/*
+	 * XXX Should we compare the maxbuckets too? We reject values that don't
+	 * fit into the sketch, so one sketch might contain values the other would
+	 * have rejected - that doesn't seem great. Or we should at least pick the
+	 * maxbuckets in some consistent way, instead of picking the value from
+	 * the first sketch.
+	 */
+
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
 						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
@@ -1563,6 +1571,14 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	/* check that the two sketches are compatible */
 	if (state1->alpha != state2->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
+
+	/*
+	 * XXX Should we compare the maxbuckets too? We reject values that don't
+	 * fit into the sketch, so one sketch might contain values the other would
+	 * have rejected - that doesn't seem great. Or we should at least pick the
+	 * maxbuckets in some consistent way, instead of picking the value from
+	 * the first sketch.
+	 */
 
 	ddsketch_merge_buckets(state1, false,
 						   STATE_BUCKETS_NEGATIVE(state2),
@@ -1887,6 +1903,14 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	/* check that the two sketches are compatible */
 	if (sketch->alpha != state->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
+
+	/*
+	 * XXX Should we compare the maxbuckets too? We reject values that don't
+	 * fit into the sketch, so one sketch might contain values the other would
+	 * have rejected - that doesn't seem great. Or we should at least pick the
+	 * maxbuckets in some consistent way, instead of picking the value from
+	 * the first sketch.
+	 */
 
 	/* copy data from sketch to aggstate */
 	ddsketch_merge_buckets(state, false,
