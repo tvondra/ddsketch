@@ -1558,8 +1558,8 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 Datum
 ddsketch_combine(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	 *state1;
-	ddsketch_aggstate_t	 *state2;
+	ddsketch_aggstate_t	 *src;
+	ddsketch_aggstate_t	 *dst;
 
 	MemoryContext aggcontext;
 	MemoryContext oldcontext;
@@ -1567,30 +1567,39 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
 		elog(ERROR, "ddsketch_combine called in non-aggregate context");
 
-	state1 = (PG_ARGISNULL(0)) ? NULL : (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-	state2 = (PG_ARGISNULL(1)) ? NULL : (ddsketch_aggstate_t *) PG_GETARG_POINTER(1);
-
-	if (state2 == NULL)
-		PG_RETURN_POINTER(state1);
-
-	/* when NULL in the first parameter, just return a copy of the second one */
-	if (state1 == NULL)
+	/* if no "merged" state yet, try creating it */
+	if (PG_ARGISNULL(0))
 	{
-		/* copy the ddsketch into the right long-lived memory context */
+		/* nope, the second argument is NULL too, so return NULL */
+		if (PG_ARGISNULL(1))
+			PG_RETURN_NULL();
+
+		/* the second argument is not NULL, so copy it */
+		src = (ddsketch_aggstate_t *) PG_GETARG_POINTER(1);
+
+		/* copy the sketch into the right long-lived memory context */
 		oldcontext = MemoryContextSwitchTo(aggcontext);
-		state1 = ddsketch_copy(state2);
+		src = ddsketch_copy(src);
 		MemoryContextSwitchTo(oldcontext);
 
-		AssertCheckDDSketchAggState(state1);
-
-		PG_RETURN_POINTER(state1);
+		PG_RETURN_POINTER(src);
 	}
 
-	AssertCheckDDSketchAggState(state1);
-	AssertCheckDDSketchAggState(state2);
+	/*
+	 * If the second argument is NULL, just return the first one (we know
+	 * it's not NULL at this point).
+	 */
+	if (PG_ARGISNULL(1))
+		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
+
+	src = (ddsketch_aggstate_t *) PG_GETARG_POINTER(1);
+	dst = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+
+	AssertCheckDDSketchAggState(src);
+	AssertCheckDDSketchAggState(dst);
 
 	/* check that the two sketches are compatible */
-	if (state1->alpha != state2->alpha)
+	if (src->alpha != dst->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
 
 	/*
@@ -1602,24 +1611,24 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	 */
 
 	/* checking the total also bounds every individual bucket count */
-	if (pg_add_s64_overflow(state1->count, state2->count, &state1->count))
+	if (pg_add_s64_overflow(dst->count, src->count, &dst->count))
 		ereport(ERROR,
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("ddsketch count overflow")));
 
-	state1->zero_count += state2->zero_count;
+	dst->zero_count += dst->zero_count;
 
-	ddsketch_merge_buckets(state1, false,
-						   STATE_BUCKETS_NEGATIVE(state2),
-						   STATE_BUCKETS_NEGATIVE_COUNT(state2));
+	ddsketch_merge_buckets(dst, false,
+						   STATE_BUCKETS_NEGATIVE(src),
+						   STATE_BUCKETS_NEGATIVE_COUNT(src));
 
-	ddsketch_merge_buckets(state1, true,
-						   STATE_BUCKETS_POSITIVE(state2),
-						   STATE_BUCKETS_POSITIVE_COUNT(state2));
+	ddsketch_merge_buckets(dst, true,
+						   STATE_BUCKETS_POSITIVE(src),
+						   STATE_BUCKETS_POSITIVE_COUNT(src));
 
-	AssertCheckDDSketchAggState(state1);
+	AssertCheckDDSketchAggState(dst);
 
-	PG_RETURN_POINTER(state1);
+	PG_RETURN_POINTER(dst);
 }
 
 /* API for incremental updates */
