@@ -1,0 +1,24 @@
+-- Non-finite observations are invalid through every insertion interface.
+SELECT ddsketch('NaN'::float8, 0.05, 16);
+ERROR:  all values added to ddsketch must be finite
+SELECT ddsketch('Infinity'::float8, 2::bigint, 0.05, 16);
+ERROR:  all values added to ddsketch must be finite
+SELECT ddsketch_add(NULL::ddsketch, '-Infinity'::float8, 0.05, 16);
+ERROR:  all values added to ddsketch must be finite
+SELECT ddsketch_add(NULL::ddsketch, 'NaN'::float8, 2::bigint, 0.05, 16);
+ERROR:  all values added to ddsketch must be finite
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 'NaN'::float8], 0.05, 16);
+ERROR:  all values added to ddsketch must be finite
+-- NaN must not bypass comparisons with the valid parameter ranges.
+SELECT ddsketch(1.0, 'NaN'::float8, 16);
+ERROR:  invalid alpha value NaN
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), ARRAY[0.5, 'NaN'::float8]);
+ERROR:  invalid percentile value NaN, should be in [0.0, 1.0]
+SELECT ddsketch_sum(ddsketch(1.0, 0.05, 16), 'NaN'::float8, 1.0);
+ERROR:  invalid low percentile value NaN, should be in [0.0, 1.0]
+SELECT ddsketch_avg(ddsketch(1.0, 0.05, 16), 0.0, 'NaN'::float8);
+ERROR:  invalid high percentile value NaN, should be in [0.0, 1.0]
+SELECT ddsketch_sum(ddsketch(1.0, 0.05, 16), '-Infinity'::float8, 1.0);
+ERROR:  invalid low percentile value -Infinity, should be in [0.0, 1.0]
+SELECT ddsketch_avg(ddsketch(1.0, 0.05, 16), 0.0, 'Infinity'::float8);
+ERROR:  invalid high percentile value Infinity, should be in [0.0, 1.0]
