@@ -866,7 +866,6 @@ ddsketch_aggstate_allocate(double alpha, int maxbuckets, int nbuckets)
 {
 	Size				len;
 	ddsketch_aggstate_t *state;
-	int					nbuckets_allocated;
 
 	/*
 	 * We allocate a single chunk for the struct including percentiles and
@@ -877,19 +876,21 @@ ddsketch_aggstate_allocate(double alpha, int maxbuckets, int nbuckets)
 	state = (ddsketch_aggstate_t *) palloc0(len);
 	state->alpha = alpha;
 
-	nbuckets_allocated = 1;
-	while (nbuckets_allocated < nbuckets)
-		nbuckets_allocated = Max(nbuckets_allocated * 2,
-								 maxbuckets);
-
-	Assert(nbuckets_allocated <= maxbuckets);
-
 	/* initialize the bucket store */
 	state->maxbuckets = maxbuckets;
-	state->nbuckets_allocated = nbuckets_allocated;
+	state->nbuckets_allocated = 1;
+
+	while (state->nbuckets_allocated < nbuckets)
+		state->nbuckets_allocated *= 2;
+
+	/* don't exceed the allowed number (maxbuckets may not be power of two) */
+	state->nbuckets_allocated = Min(state->nbuckets_allocated,
+									state->maxbuckets);
+
+	Assert(state->nbuckets_allocated <= state->maxbuckets);
 
 	/* we may need to repalloc this later */
-	state->buckets = palloc0(nbuckets_allocated * sizeof(bucket_t));
+	state->buckets = palloc0(state->nbuckets_allocated * sizeof(bucket_t));
 
 	state->nbuckets = 0;
 	state->nbuckets_negative = 0;
@@ -1469,6 +1470,7 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 	char   *endptr PG_USED_FOR_ASSERTS_ONLY;
 	ddsketch_aggstate_t	tmp;
 	ddsketch_aggstate_t *state;
+	int		nbuckets_allocated;
 
 	endptr = ptr + VARSIZE_ANY_EXHDR(v);
 
@@ -1479,7 +1481,14 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 	state = ddsketch_aggstate_allocate(tmp.alpha,
 									   tmp.maxbuckets, tmp.nbuckets);
 
+	 /*
+	 * Copy the header, but keep the number of buckets we actually allocated
+	 * above - the serialized value describes the allocation of the state it
+	 * was produced from, which may well have been larger.
+	*/
+	nbuckets_allocated = state->nbuckets_allocated;
 	memcpy(state, &tmp, offsetof(ddsketch_aggstate_t, buckets));
+	state->nbuckets_allocated = nbuckets_allocated;
 
 	/* copy the buckets back */
 	memcpy(STATE_BUCKETS(state), ptr, STATE_BUCKETS_BYTES(state));
@@ -1494,13 +1503,21 @@ static ddsketch_aggstate_t *
 ddsketch_copy(ddsketch_aggstate_t *state)
 {
 	ddsketch_aggstate_t *copy;
+	int					nbuckets_allocated;
 
 	AssertCheckDDSketchAggState(state);
 
 	copy = ddsketch_aggstate_allocate(state->alpha, state->maxbuckets,
 									  state->nbuckets);
 
+	 /*
+	 * Copy the header, but keep the number of buckets we actually allocated
+	 * above - the serialized value describes the allocation of the state it
+	 * was produced from, which may well have been larger.
+	*/
+	nbuckets_allocated = copy->nbuckets_allocated;
 	memcpy(copy, state, offsetof(ddsketch_aggstate_t, buckets));
+	copy->nbuckets_allocated = nbuckets_allocated;
 
 	memcpy(STATE_BUCKETS(copy), STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
 
