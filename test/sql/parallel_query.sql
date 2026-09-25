@@ -101,3 +101,19 @@ WITH sketches AS (
 SELECT ddsketch_union(NULL::ddsketch, sketches.s) FROM sketches;
 
 SELECT ddsketch_union(NULL::ddsketch, NULL::ddsketch);
+
+-- Unequal partial zero counts detect doubling the destination instead of adding the source.
+SET enable_partitionwise_aggregate = on;
+SET max_parallel_workers_per_gather = 0;
+CREATE TEMP TABLE zero_parts (part integer, v double precision, n bigint) PARTITION BY LIST (part);
+CREATE TEMP TABLE zero_parts_a PARTITION OF zero_parts FOR VALUES IN (0);
+CREATE TEMP TABLE zero_parts_b PARTITION OF zero_parts FOR VALUES IN (1);
+INSERT INTO zero_parts SELECT 0, 0.0, 1 FROM generate_series(1, 10);
+INSERT INTO zero_parts SELECT 1, 0.0, 3 FROM generate_series(1, 10);
+ANALYZE zero_parts;
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, n, 0.05, 16) FROM zero_parts;
+SELECT count, zero_count
+FROM ddsketch_info((SELECT ddsketch(v, n, 0.05, 16) FROM zero_parts));
+DROP TABLE zero_parts;
+RESET enable_partitionwise_aggregate;
+RESET max_parallel_workers_per_gather;
