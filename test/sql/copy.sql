@@ -39,3 +39,14 @@ FROM ddsketch_src src JOIN ddsketch_dst dst ON (src.id = dst.id);
 
 DROP TABLE ddsketch_src;
 DROP TABLE ddsketch_dst;
+
+-- Text round-trips must preserve alpha exactly, including merge compatibility.
+SET extra_float_digits = 3;
+WITH sketch AS (
+    SELECT ddsketch(v, 0.0123456789012345, 16) AS s
+    FROM (VALUES (-1.0), (0.0), (1.0)) t(v)
+)
+SELECT ddsketch_send(s) = ddsketch_send(s::text::ddsketch) AS lossless,
+       ddsketch_count(ddsketch_union(s, s::text::ddsketch)) AS merged_count
+FROM sketch;
+RESET extra_float_digits;
