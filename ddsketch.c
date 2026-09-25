@@ -1091,24 +1091,29 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 }
 
 /*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with a single value.
+ * guard stubs for the functions removed by the API rework
  */
+static void
+ddsketch_upgrade_required(void)
+{
+	ereport(ERROR,
+			(errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+			 errmsg("function is no longer supported by the ddsjetcg extension"),
+			 errhint("The shared library has been upgraded but the SQL definitions have not. "
+					 "Run \"ALTER EXTENSION ddsketch UPDATE\".")));
+}
+
 Datum
 ddsketch_add_double_values(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with a single value.
- */
 Datum
 ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
@@ -1308,80 +1313,52 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(state);
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with a single value.
- */
 Datum
 ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of percentiles.
- */
 Datum
 ddsketch_add_double_array(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of percentiles.
- */
 Datum
 ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of values.
- */
 Datum
 ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of values.
- */
 Datum
 ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a ddsketch to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of percentiles.
- */
 Datum
 ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a sketch to the ddsketch (create one if needed). Transition function
- * for ddsketch aggregate with an array of values.
- */
 Datum
 ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
@@ -2770,25 +2747,21 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_trimmed(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
 Datum
 ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Add a value to the sketch (create one if needed). Transition function
- * for trimmed sketch aggregate with a single value.
- */
 Datum
 ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
@@ -2867,26 +2840,17 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 	*countp = count;
 }
 
-
-/*
- * Compute trimmed average from a sketch. Final function for ddsketch
- * aggregate with a low/high thresholds.
- */
 Datum
 ddsketch_trimmed_avg(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
-/*
- * Compute trimmed sum from a sketch. Final function for ddsketch aggregate
- * with a low/high threshold.
- */
 Datum
 ddsketch_trimmed_sum(PG_FUNCTION_ARGS)
 {
-	elog(ERROR, "extension upgrade needed");
+	ddsketch_upgrade_required();
 	PG_RETURN_NULL();
 }
 
