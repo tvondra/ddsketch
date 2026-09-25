@@ -2858,7 +2858,12 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 		 * Consider the indexable range. For the upper bound, we can't do much
 		 * about those values - the ddsketch will fail anyway, so just report
 		 * the issue here.
+		 *
+		 * XXX Make sure to reject NaN/infinity values.
 		 */
+		if (!isfinite(min_value) || !isfinite(max_value))
+			elog(ERROR, "invalid range (%e, %e)", min_value, max_value);
+
 		if (fabs(min_value) > max_indexable_value)
 			elog(ERROR, "maximum value is outside indexable range (%e > %e)",
 				 max_value, max_indexable_value);
