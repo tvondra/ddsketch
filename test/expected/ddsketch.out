@@ -5560,3 +5560,14 @@ SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.5, 0.5)   BETWEEN 4750000 
  f
 (1 row)
 
+-- Scalar percentiles need the same validation as percentile arrays.
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), -0.1);
+ERROR:  invalid percentile value -0.100000, should be in [0.0, 1.0]
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 1.1);
+ERROR:  invalid percentile value 1.100000, should be in [0.0, 1.0]
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'NaN'::float8);
+ERROR:  invalid percentile value NaN, should be in [0.0, 1.0]
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), '-Infinity'::float8);
+ERROR:  invalid percentile value -Infinity, should be in [0.0, 1.0]
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'Infinity'::float8);
+ERROR:  invalid percentile value Infinity, should be in [0.0, 1.0]
