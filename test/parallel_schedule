@@ -1,2 +1,3 @@
 test: _init
-test: combine copy ddsketch union arrays nonfinite input
+test: basic copy hypothetical_aggs nulls  parallel_query percentiles summary trimmed_aggs value_count arrays nonfinite input
+test: combine ddsketch union
