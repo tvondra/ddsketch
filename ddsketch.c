@@ -155,10 +155,6 @@ typedef struct ddsketch_aggstate_t {
 	double		multiplier;
 	double		gamma;
 
-	/* trimmed aggregates */
-	double		trim_low;		/* low threshold (for trimmed aggs) */
-	double		trim_high;		/* high threshold (for trimmed aggs) */
-
 	/* store with buckets (positive and negative) */
 	int64		zero_count;		/* values close to zero */
 	int32		maxbuckets;		/* maximum number of buckets */
@@ -166,14 +162,8 @@ typedef struct ddsketch_aggstate_t {
 	int32		nbuckets_negative;	/* number of buckets in negative part */
 	int32		nbuckets_allocated;	/* number of buckets (allocated) */
 
-	/* array of requested percentiles and values */
-	int			npercentiles;	/* number of percentiles */
-	int			nvalues;		/* number of values */
-
-	/* variable-length fields at the end */
-	double	   *percentiles;	/* array of percentiles (if any) */
-	double	   *values;			/* array of values (if any) */
-	bucket_t   *buckets;		/* buckets (negative and positive) */
+	/* buckets (negative and positive) */
+	bucket_t  *buckets;
 } ddsketch_aggstate_t;
 
 #define STATE_BUCKETS_FULL(state)	\
@@ -312,10 +302,10 @@ static Datum double_to_array(FunctionCallInfo fcinfo, double * d, int len);
 static double *array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int * len);
 
 /* mapping to bucket indexes etc. */
-static double ddsketch_log_gamma(ddsketch_aggstate_t *state, double value);
-static double ddsketch_pow_gamma(ddsketch_aggstate_t *state, double value);
-static int    ddsketch_map_index(ddsketch_aggstate_t *state, double value);
-static double ddsketch_map_value(ddsketch_aggstate_t *state, double index);
+static double ddsketch_log_gamma(double multiplier, double value);
+static double ddsketch_pow_gamma(double multiplier, double value);
+static int    ddsketch_map_index(int offset, double multiplier, double value);
+static double ddsketch_map_value(int offset, double multiplier, double gamma, double index);
 
 /* boundaries for relative error */
 #define	MIN_SKETCH_ALPHA	0.0001
@@ -436,49 +426,39 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
 	}
 
 	Assert(count == state->count);
-
-	Assert(state->npercentiles >= 0);
-	Assert(state->nvalues >= 0);
-
-	/* both can't be set at the same time */
-	Assert(!((state->npercentiles > 0) && (state->nvalues > 0)));
-
-	Assert(((state->npercentiles == 0) && (state->percentiles == NULL)) ||
-		   ((state->npercentiles > 0) && (state->percentiles != NULL)));
-
-	Assert(((state->nvalues == 0) && (state->values == NULL)) ||
-		   ((state->nvalues > 0) && (state->values != NULL)));
-
-	for (i = 0; i < state->npercentiles; i++)
-	{
-		Assert((state->percentiles[i] >= 0.0) && (state->percentiles[i] <= 1.0));
-	}
 #endif
 }
 
 /*
  * Estimate requested quantiles from the sketch agggregate state.
  */
-static void
-ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
+static double *
+ddsketch_compute_quantiles(ddsketch_t *sketch,
+						   int npercentiles, double *percentiles)
 {
 	int			i;
+	double	   *result = palloc(sizeof(double) * npercentiles);
 
-	AssertCheckDDSketchAggState(state);
+	/* parameters used for mapping values to buckets */
+	int32		offset = 0;
+	double		gamma = (1 + sketch->alpha) / (1 - sketch->alpha);
+	double		multiplier = log(2.0) / log1p(2 * sketch->alpha / (1 - sketch->alpha));
 
-	for (i = 0; i < state->npercentiles; i++)
+	AssertCheckDDSketch(sketch);
+
+	for (i = 0; i < npercentiles; i++)
 	{
 		int		j;
 		int		index = 0;
 		int64	count = 0;
-		double	goal = (state->percentiles[i] * (state->count - 1));
+		double	goal = (percentiles[i] * (sketch->count - 1));
 		bucket_t *buckets;
 
 		/*
 		 * Process the negative, zero and positive stores, in this order.
 		 */
-		buckets = STATE_BUCKETS_NEGATIVE(state);
-		for (j = 0; j < STATE_BUCKETS_NEGATIVE_COUNT(state); j++)
+		buckets = SKETCH_BUCKETS_NEGATIVE(sketch);
+		for (j = 0; j < SKETCH_BUCKETS_NEGATIVE_COUNT(sketch); j++)
 		{
 			/* accumulate the count, remember the last bucket index */
 			count += buckets[j].count;
@@ -491,12 +471,12 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		/* are we done after processing the negative store? */
 		if (count > goal)
 		{
-			result[i] = -ddsketch_map_value(state, index);;
+			result[i] = -ddsketch_map_value(offset, multiplier, gamma, index);
 			continue;
 		}
 
 		/* now the zero bucket */
-		count += state->zero_count;
+		count += sketch->zero_count;
 
 		/* are we done after processing the zero bucket? */
 		if (count > goal)
@@ -506,8 +486,8 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 		}
 
 		/* and finally the positive store */
-		buckets = STATE_BUCKETS_POSITIVE(state);
-		for (j = 0; j < STATE_BUCKETS_POSITIVE_COUNT(state); j++)
+		buckets = SKETCH_BUCKETS_POSITIVE(sketch);
+		for (j = 0; j < SKETCH_BUCKETS_POSITIVE_COUNT(sketch); j++)
 		{
 			count += buckets[j].count;
 			index = buckets[j].index;
@@ -518,8 +498,10 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
 
 		Assert(count >= goal);
 
-		result[i] = ddsketch_map_value(state, index);
+		result[i] = ddsketch_map_value(offset, multiplier, gamma, index);
 	}
+
+	return result;
 }
 
 /*
@@ -542,35 +524,43 @@ ddsketch_compute_quantiles(ddsketch_aggstate_t *state, double *result)
  * XXX Maybe instead of using half the bucket, we could use linear
  * approximation between the bucket min/max.
  */
-static void
-ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
+static double *
+ddsketch_compute_quantiles_of(ddsketch_t *sketch,
+							  int nvalues, double *values)
 {
 	int		i;
+	double	   *result = palloc(sizeof(double) * nvalues);
 
-	AssertCheckDDSketchAggState(state);
+	/* parameters used for mapping values to buckets */
+	int32		offset = 0;
+	double		gamma = (1 + sketch->alpha) / (1 - sketch->alpha);
+	double		min_indexable_value = DBL_MIN * gamma;
+	double		multiplier = log(2.0) / log1p(2 * sketch->alpha / (1 - sketch->alpha));
 
-	for (i = 0; i < state->nvalues; i++)
+	AssertCheckDDSketch(sketch);
+
+	for (i = 0; i < nvalues; i++)
 	{
 		int64	count = 0;
-		double	value = state->values[i];
+		double	value = values[i];
 
-		if (value > state->min_indexable_value)	/* value in positive part */
+		if (value > min_indexable_value)	/* value in positive part */
 		{
 			int		j;
-			int		index = ddsketch_map_index(state, value);
+			int		index = ddsketch_map_index(offset, multiplier, value);
 			bucket_t *buckets;
 
 			/* add the whole negative part */
-			buckets = STATE_BUCKETS_NEGATIVE(state);
-			for (j = 0; j < STATE_BUCKETS_NEGATIVE_COUNT(state); j++)
+			buckets = SKETCH_BUCKETS_NEGATIVE(sketch);
+			for (j = 0; j < SKETCH_BUCKETS_NEGATIVE_COUNT(sketch); j++)
 				count += buckets[j].count;
 
 			/* add the zero bucket */
-			count += state->zero_count;
+			count += sketch->zero_count;
 
 			/* and now add the positive part, up to the index */
-			buckets = STATE_BUCKETS_POSITIVE(state);
-			for (j = 0; j < STATE_BUCKETS_POSITIVE_COUNT(state); j++)
+			buckets = SKETCH_BUCKETS_POSITIVE(sketch);
+			for (j = 0; j < SKETCH_BUCKETS_POSITIVE_COUNT(sketch); j++)
 			{
 				if (buckets[j].index > index)
 					break;
@@ -581,14 +571,14 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 					count += buckets[j].count / 2;
 			}
 		}
-		else if (value < -state->min_indexable_value)	/* value in negative part */
+		else if (value < -min_indexable_value)	/* value in negative part */
 		{
 			int		j;
-			int		index = ddsketch_map_index(state, -value);
+			int		index = ddsketch_map_index(offset, multiplier, -value);
 			bucket_t *buckets;
 
-			buckets = STATE_BUCKETS_NEGATIVE(state);
-			for (j = 0; j < STATE_BUCKETS_NEGATIVE_COUNT(state); j++)
+			buckets = SKETCH_BUCKETS_NEGATIVE(sketch);
+			for (j = 0; j < SKETCH_BUCKETS_NEGATIVE_COUNT(sketch); j++)
 			{
 				/* negative part is sorted in reverse order */
 				if (buckets[j].index < index)
@@ -607,16 +597,18 @@ ddsketch_compute_quantiles_of(ddsketch_aggstate_t *state, double *result)
 			bucket_t *buckets;
 
 			/* add the whole negative part */
-			buckets = STATE_BUCKETS_NEGATIVE(state);
-			for (j = 0; j < STATE_BUCKETS_NEGATIVE_COUNT(state); j++)
+			buckets = SKETCH_BUCKETS_NEGATIVE(sketch);
+			for (j = 0; j < SKETCH_BUCKETS_NEGATIVE_COUNT(sketch); j++)
 				count += buckets[j].count;
 
 			/* add the zero bucket */
-			count += state->zero_count;
+			count += sketch->zero_count;
 		}
 
-		result[i] = count / ((double) state->count - 1);
+		result[i] = count / ((double) sketch->count - 1);
 	}
+
+	return result;
 }
 
 /* comparator by index in ascending order (positive buckets) */
@@ -804,12 +796,12 @@ ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 
 	if (value > state->min_indexable_value)
 	{
-		index = ddsketch_map_index(state, value);
+		index = ddsketch_map_index(state->offset, state->multiplier, value);
 		ddsketch_store_add(state, true, index, count);
 	}
 	else if (value < -state->min_indexable_value)
 	{
-		index = ddsketch_map_index(state, -value);
+		index = ddsketch_map_index(state->offset, state->multiplier, -value);
 		ddsketch_store_add(state, false, index, count);
 	}
 	else
@@ -871,47 +863,20 @@ ddsketch_allocate(int32 flags, int64 count, double alpha, int64 zero_count,
  * and value(s) requested when calling the aggregate function
  */
 static ddsketch_aggstate_t *
-ddsketch_aggstate_allocate(int npercentiles, int nvalues, double alpha,
-						   int maxbuckets, int nbuckets)
+ddsketch_aggstate_allocate(double alpha, int maxbuckets, int nbuckets)
 {
 	Size				len;
 	ddsketch_aggstate_t *state;
-	char			   *ptr;
 	int					nbuckets_allocated;
-
-	/* at least one of those values is 0 */
-	Assert(nvalues == 0 || npercentiles == 0);
 
 	/*
 	 * We allocate a single chunk for the struct including percentiles and
 	 * buckets.
 	 */
-	len = MAXALIGN(sizeof(ddsketch_aggstate_t)) +
-		  MAXALIGN(sizeof(double) * npercentiles) +
-		  MAXALIGN(sizeof(double) * nvalues);
+	len = MAXALIGN(sizeof(ddsketch_aggstate_t));
 
-	ptr = palloc0(len);
-
-	state = (ddsketch_aggstate_t *) ptr;
-	ptr += MAXALIGN(sizeof(ddsketch_aggstate_t));
-
-	state->nvalues = nvalues;
-	state->npercentiles = npercentiles;
+	state = (ddsketch_aggstate_t *) palloc0(len);
 	state->alpha = alpha;
-
-	if (npercentiles > 0)
-	{
-		state->percentiles = (double *) ptr;
-		ptr += MAXALIGN(sizeof(double) * npercentiles);
-	}
-
-	if (nvalues > 0)
-	{
-		state->values = (double *) ptr;
-		ptr += MAXALIGN(sizeof(double) * nvalues);
-	}
-
-	Assert(ptr == (char *) state + len);
 
 	nbuckets_allocated = 1;
 	while (nbuckets_allocated < nbuckets)
@@ -1044,31 +1009,14 @@ ddsketch_add_double(PG_FUNCTION_ARGS)
 		double	alpha = PG_GETARG_FLOAT8(2);
 		int32	maxbuckets = PG_GETARG_INT32(3);
 
-		double *percentiles = NULL;
-		int		npercentiles = 0;
 		MemoryContext	oldcontext;
 
 		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
-		if (PG_NARGS() >= 5)
-		{
-			percentiles = (double *) palloc(sizeof(double));
-			percentiles[0] = PG_GETARG_FLOAT8(4);
-			npercentiles = 1;
-
-			check_percentiles(percentiles, npercentiles);
-		}
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+		state = ddsketch_aggstate_allocate(alpha,
 										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		if (percentiles)
-		{
-			memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-			pfree(percentiles);
-		}
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -1114,31 +1062,14 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 		double	alpha = PG_GETARG_FLOAT8(3);
 		int32	maxbuckets = PG_GETARG_INT32(4);
 
-		double *percentiles = NULL;
-		int		npercentiles = 0;
 		MemoryContext	oldcontext;
 
 		check_sketch_parameters(alpha, maxbuckets);
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
-		if (PG_NARGS() >= 6)
-		{
-			percentiles = (double *) palloc(sizeof(double));
-			percentiles[0] = PG_GETARG_FLOAT8(5);
-			npercentiles = 1;
-
-			check_percentiles(percentiles, npercentiles);
-		}
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
+		state = ddsketch_aggstate_allocate(alpha,
 										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		if (percentiles)
-		{
-			memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-			pfree(percentiles);
-		}
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -1166,65 +1097,8 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_values(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
-
-		double *values = NULL;
-		int		nvalues = 0;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		if (PG_NARGS() >= 5)
-		{
-			values = (double *) palloc(sizeof(double));
-			values[0] = PG_GETARG_FLOAT8(4);
-			nvalues = 1;
-		}
-
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		if (values)
-		{
-			memcpy(state->values, values, sizeof(double) * nvalues);
-			pfree(values);
-		}
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1234,75 +1108,8 @@ ddsketch_add_double_values(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_values_count(PG_FUNCTION_ARGS)
 {
-	int64				count;
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	maxbuckets = PG_GETARG_INT32(4);
-
-		double *values = NULL;
-		int		nvalues = 0;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		if (PG_NARGS() >= 6)
-		{
-			values = (double *) palloc(sizeof(double));
-			values[0] = PG_GETARG_FLOAT8(5);
-			nvalues = 1;
-		}
-
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		if (values)
-		{
-			memcpy(state->values, values, sizeof(double) * nvalues);
-			pfree(values);
-		}
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	if (PG_ARGISNULL(2))
-		count = 1;
-	else
-		count = PG_GETARG_INT64(2);
-
-	/* can't add values with non-positive counts */
-	if (count <= 0)
-		elog(ERROR, "invalid count value %ld, must be a positive value", count);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /* merge buckets into the aggregate state */
@@ -1466,30 +1273,12 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	/* if there's no aggregate state allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
-		double *percentiles = NULL;
-		int		npercentiles = 0;
-
 		MemoryContext	oldcontext;
 
 		oldcontext = MemoryContextSwitchTo(aggcontext);
 
-		if (PG_NARGS() >= 3)
-		{
-			percentiles = (double *) palloc(sizeof(double));
-			percentiles[0] = PG_GETARG_FLOAT8(2);
-			npercentiles = 1;
-
-			check_percentiles(percentiles, npercentiles);
-		}
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha,
+		state = ddsketch_aggstate_allocate(sketch->alpha,
 										   sketch->maxbuckets, sketch->nbuckets);
-
-		if (percentiles)
-		{
-			memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-			pfree(percentiles);
-		}
 
 		MemoryContextSwitchTo(oldcontext);
 	}
@@ -1526,82 +1315,8 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-	ddsketch_t		   *sketch;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_sketch_values called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
-
-	/* if there's no aggregate state allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double *values = NULL;
-		int		nvalues = 0;
-
-		MemoryContext	oldcontext;
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		if (PG_NARGS() >= 3)
-		{
-			values = (double *) palloc(sizeof(double));
-			values[0] = PG_GETARG_FLOAT8(2);
-			nvalues = 1;
-		}
-
-		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha,
-										   sketch->maxbuckets, sketch->nbuckets);
-
-		if (values)
-		{
-			memcpy(state->values, values, sizeof(double) * nvalues);
-			pfree(values);
-		}
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	AssertCheckDDSketch(sketch);
-	AssertCheckDDSketchAggState(state);
-
-	/* check that the sketch and aggstate are compatible */
-	if (state->alpha != sketch->alpha)
-		elog(ERROR, "can't merge sketches with different alpha values");
-
-	ddsketch_merge_buckets(state, false,
-						   SKETCH_BUCKETS_NEGATIVE(sketch),
-						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
-
-	ddsketch_merge_buckets(state, true,
-						   SKETCH_BUCKETS_POSITIVE(sketch),
-						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
-
-	AssertCheckDDSketchAggState(state);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1611,62 +1326,8 @@ ddsketch_add_sketch_values(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_array(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
-
-		double *percentiles;
-		int		npercentiles;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		percentiles = array_to_double(fcinfo,
-									  PG_GETARG_ARRAYTYPE_P(4),
-									  &npercentiles);
-
-		check_percentiles(percentiles, npercentiles);
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-
-		pfree(percentiles);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1676,68 +1337,8 @@ ddsketch_add_double_array(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
 {
-	int64				count;
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	maxbuckets = PG_GETARG_INT32(4);
-
-		double *percentiles;
-		int		npercentiles;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		percentiles = array_to_double(fcinfo,
-									  PG_GETARG_ARRAYTYPE_P(5),
-									  &npercentiles);
-
-		check_percentiles(percentiles, npercentiles);
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-
-		pfree(percentiles);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	if (PG_ARGISNULL(2))
-		count = 1;
-	else
-		count = PG_GETARG_INT64(2);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1747,60 +1348,8 @@ ddsketch_add_double_array_count(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
-
-		double *values;
-		int		nvalues;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		values = array_to_double(fcinfo,
-								 PG_GETARG_ARRAYTYPE_P(4),
-								 &nvalues);
-
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		memcpy(state->values, values, sizeof(double) * nvalues);
-
-		pfree(values);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1810,70 +1359,8 @@ ddsketch_add_double_array_values(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 {
-	int64				count;
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	maxbuckets = PG_GETARG_INT32(4);
-
-		double *values;
-		int		nvalues;
-		MemoryContext	oldcontext;
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		values = array_to_double(fcinfo,
-								 PG_GETARG_ARRAYTYPE_P(5),
-								 &nvalues);
-
-		state = ddsketch_aggstate_allocate(0, nvalues, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		memcpy(state->values, values, sizeof(double) * nvalues);
-
-		pfree(values);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	if (PG_ARGISNULL(2))
-		count = 1;
-	else
-		count = PG_GETARG_INT64(2);
-
-	/* can't add values with non-positive counts */
-	if (count <= 0)
-		elog(ERROR, "invalid count value %ld, must be a positive value", count);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1883,80 +1370,8 @@ ddsketch_add_double_array_values_count(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-	ddsketch_t		   *sketch;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_sketch_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
-
-	AssertCheckDDSketch(sketch);
-
-	/* if there's no aggregate state allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double *percentiles;
-		int		npercentiles;
-		MemoryContext	oldcontext;
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		percentiles = array_to_double(fcinfo,
-									  PG_GETARG_ARRAYTYPE_P(2),
-									  &npercentiles);
-
-		check_percentiles(percentiles, npercentiles);
-
-		state = ddsketch_aggstate_allocate(npercentiles, 0, sketch->alpha,
-										   sketch->maxbuckets, sketch->nbuckets);
-
-		memcpy(state->percentiles, percentiles, sizeof(double) * npercentiles);
-
-		pfree(percentiles);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	AssertCheckDDSketch(sketch);
-	AssertCheckDDSketchAggState(state);
-
-	/* check that the sketch and aggstate are compatible */
-	if (state->alpha != sketch->alpha)
-		elog(ERROR, "can't merge sketches with different alpha values");
-
-	ddsketch_merge_buckets(state, false,
-						   SKETCH_BUCKETS_NEGATIVE(sketch),
-						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
-
-	ddsketch_merge_buckets(state, true,
-						   SKETCH_BUCKETS_POSITIVE(sketch),
-						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
-
-	AssertCheckDDSketchAggState(state);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -1966,78 +1381,8 @@ ddsketch_add_sketch_array(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-	ddsketch_t		   *sketch;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_sketch_array called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
-
-	AssertCheckDDSketch(sketch);
-
-	/* if there's no aggregate state allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double *values;
-		int		nvalues;
-		MemoryContext	oldcontext;
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		values = array_to_double(fcinfo,
-								 PG_GETARG_ARRAYTYPE_P(2),
-								 &nvalues);
-
-		state = ddsketch_aggstate_allocate(0, nvalues, sketch->alpha,
-										   sketch->maxbuckets, sketch->nbuckets);
-
-		memcpy(state->values, values, sizeof(double) * nvalues);
-
-		pfree(values);
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	AssertCheckDDSketch(sketch);
-	AssertCheckDDSketchAggState(state);
-
-	/* check that the sketch and aggstate are compatible */
-	if (state->alpha != sketch->alpha)
-		elog(ERROR, "can't merge sketches with different alpha values");
-
-	ddsketch_merge_buckets(state, false,
-						   SKETCH_BUCKETS_NEGATIVE(sketch),
-						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
-
-	ddsketch_merge_buckets(state, true,
-						   SKETCH_BUCKETS_POSITIVE(sketch),
-						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
-
-	AssertCheckDDSketchAggState(state);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -2047,23 +1392,20 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 Datum
 ddsketch_percentiles(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	   *state;
-	MemoryContext	aggcontext;
-	double			ret;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_percentiles called in non-aggregate context");
+	ddsketch_t	   *sketch;
+	double		   *ret;
+	double			percentile;
 
 	/* if there's no ddsketch, return NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	sketch = PG_GETARG_DDSKETCH(0);
+	percentile = PG_GETARG_FLOAT8(1);
 
-	ddsketch_compute_quantiles(state, &ret);
+	ret = ddsketch_compute_quantiles(sketch, 1, &percentile);
 
-	PG_RETURN_FLOAT8(ret);
+	PG_RETURN_FLOAT8(*ret);
 }
 
 /*
@@ -2073,23 +1415,20 @@ ddsketch_percentiles(PG_FUNCTION_ARGS)
 Datum
 ddsketch_percentiles_of(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	   *state;
-	MemoryContext	aggcontext;
-	double			ret;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_percentiles_of called in non-aggregate context");
+	ddsketch_t	   *sketch;
+	double		   *ret;
+	double			value;
 
 	/* if there's no ddsketch, return NULL */
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	sketch = PG_GETARG_DDSKETCH(0);
+	value = PG_GETARG_FLOAT8(1);
 
-	ddsketch_compute_quantiles_of(state, &ret);
+	ret = ddsketch_compute_quantiles_of(sketch, 1, &value);
 
-	PG_RETURN_FLOAT8(ret);
+	PG_RETURN_FLOAT8(*ret);
 }
 
 /*
@@ -2125,24 +1464,24 @@ Datum
 ddsketch_array_percentiles(PG_FUNCTION_ARGS)
 {
 	double	*result;
-	MemoryContext aggcontext;
-
-	ddsketch_aggstate_t *state;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_array_percentiles called in non-aggregate context");
+	ddsketch_t *sketch;
+	double	   *percentiles;
+	int			npercentiles;
 
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	sketch = PG_GETARG_DDSKETCH(0);
 
-	result = palloc(state->npercentiles * sizeof(double));
+	percentiles = array_to_double(fcinfo,
+								  PG_GETARG_ARRAYTYPE_P(1),
+								  &npercentiles);
 
-	ddsketch_compute_quantiles(state, result);
+	check_percentiles(percentiles, npercentiles);
 
-	return double_to_array(fcinfo, result, state->npercentiles);
+	result = ddsketch_compute_quantiles(sketch, npercentiles, percentiles);
+
+	return double_to_array(fcinfo, result, npercentiles);
 }
 
 /*
@@ -2153,24 +1492,23 @@ Datum
 ddsketch_array_percentiles_of(PG_FUNCTION_ARGS)
 {
 	double	*result;
-	MemoryContext aggcontext;
+	double	   *values;
+	int			nvalues;
 
-	ddsketch_aggstate_t *state;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_array_percentiles_of called in non-aggregate context");
+	ddsketch_t *sketch;
 
 	if (PG_ARGISNULL(0))
 		PG_RETURN_NULL();
 
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
+	sketch = PG_GETARG_DDSKETCH(0);
 
-	result = palloc(state->nvalues * sizeof(double));
+	values = array_to_double(fcinfo,
+							 PG_GETARG_ARRAYTYPE_P(1),
+							 &nvalues);
 
-	ddsketch_compute_quantiles_of(state, result);
+	result = ddsketch_compute_quantiles_of(sketch, nvalues, values);
 
-	return double_to_array(fcinfo, result, state->nvalues);
+	return double_to_array(fcinfo, result, nvalues);
 }
 
 Datum
@@ -2183,9 +1521,7 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 
 	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
-	len = offsetof(ddsketch_aggstate_t, percentiles) +
-		  state->npercentiles * sizeof(double) +
-		  state->nvalues * sizeof(double) +
+	len = offsetof(ddsketch_aggstate_t, buckets) +
 		  STATE_BUCKETS_BYTES(state);
 
 	v = palloc(len + VARHDRSZ);
@@ -2193,20 +1529,8 @@ ddsketch_serial(PG_FUNCTION_ARGS)
 	SET_VARSIZE(v, len + VARHDRSZ);
 	ptr = VARDATA(v);
 
-	memcpy(ptr, state, offsetof(ddsketch_aggstate_t, percentiles));
-	ptr += offsetof(ddsketch_aggstate_t, percentiles);
-
-	if (state->npercentiles > 0)
-	{
-		memcpy(ptr, state->percentiles, sizeof(double) * state->npercentiles);
-		ptr += sizeof(double) * state->npercentiles;
-	}
-
-	if (state->nvalues > 0)
-	{
-		memcpy(ptr, state->values, sizeof(double) * state->nvalues);
-		ptr += sizeof(double) * state->nvalues;
-	}
+	memcpy(ptr, state, offsetof(ddsketch_aggstate_t, buckets));
+	ptr += offsetof(ddsketch_aggstate_t, buckets);
 
 	/* FIXME maybe don't serialize full buckets, but just the count */
 	memcpy(ptr, STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
@@ -2225,49 +1549,17 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 	char   *endptr PG_USED_FOR_ASSERTS_ONLY;
 	ddsketch_aggstate_t	tmp;
 	ddsketch_aggstate_t *state;
-	double			   *percentiles = NULL;
-	double			   *values = NULL;
 
 	endptr = ptr + VARSIZE_ANY_EXHDR(v);
 
 	/* copy aggstate header into a local variable */
-	memcpy(&tmp, ptr, offsetof(ddsketch_aggstate_t, percentiles));
-	ptr += offsetof(ddsketch_aggstate_t, percentiles);
+	memcpy(&tmp, ptr, offsetof(ddsketch_aggstate_t, buckets));
+	ptr += offsetof(ddsketch_aggstate_t, buckets);
 
-	/* allocate and copy percentiles */
-	if (tmp.npercentiles > 0)
-	{
-		percentiles = palloc(tmp.npercentiles * sizeof(double));
-		memcpy(percentiles, ptr, tmp.npercentiles * sizeof(double));
-		ptr += tmp.npercentiles * sizeof(double);
-	}
-
-	/* allocate and copy values */
-	if (tmp.nvalues > 0)
-	{
-		values = palloc(tmp.nvalues * sizeof(double));
-		memcpy(values, ptr, tmp.nvalues * sizeof(double));
-		ptr += tmp.nvalues * sizeof(double);
-	}
-
-	state = ddsketch_aggstate_allocate(tmp.npercentiles, tmp.nvalues, tmp.alpha,
+	state = ddsketch_aggstate_allocate(tmp.alpha,
 									   tmp.maxbuckets, tmp.nbuckets);
 
-	if (tmp.npercentiles > 0)
-	{
-		memcpy(state->percentiles, percentiles, tmp.npercentiles * sizeof(double));
-		pfree(percentiles);
-	}
-
-	if (tmp.nvalues > 0)
-	{
-		memcpy(state->values, values, tmp.nvalues * sizeof(double));
-		pfree(values);
-	}
-
-	/* copy the data into the newly-allocated state */
-	memcpy(state, &tmp, offsetof(ddsketch_aggstate_t, percentiles));
-	/* we don't need to move the pointer */
+	memcpy(state, &tmp, offsetof(ddsketch_aggstate_t, buckets));
 
 	/* copy the buckets back */
 	memcpy(STATE_BUCKETS(state), ptr, STATE_BUCKETS_BYTES(state));
@@ -2285,19 +1577,10 @@ ddsketch_copy(ddsketch_aggstate_t *state)
 
 	AssertCheckDDSketchAggState(state);
 
-	copy = ddsketch_aggstate_allocate(state->npercentiles, state->nvalues,
-									  state->alpha, state->maxbuckets,
+	copy = ddsketch_aggstate_allocate(state->alpha, state->maxbuckets,
 									  state->nbuckets);
 
-	memcpy(copy, state, offsetof(ddsketch_aggstate_t, percentiles));
-
-	if (state->nvalues > 0)
-		memcpy(copy->values, state->values,
-			   sizeof(double) * state->nvalues);
-
-	if (state->npercentiles > 0)
-		memcpy(copy->percentiles, state->percentiles,
-			   sizeof(double) * state->npercentiles);
+	memcpy(copy, state, offsetof(ddsketch_aggstate_t, buckets));
 
 	memcpy(STATE_BUCKETS(copy), STATE_BUCKETS(state), STATE_BUCKETS_BYTES(state));
 
@@ -2372,7 +1655,7 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 
 	AssertCheckDDSketch(sketch);
 
-	state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
+	state = ddsketch_aggstate_allocate(sketch->alpha,
 									   sketch->maxbuckets, sketch->nbuckets);
 
 	state->count = sketch->count;
@@ -2438,7 +1721,7 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 
 		check_sketch_parameters(alpha, maxbuckets);
 
-		state = ddsketch_aggstate_allocate(0, 0, alpha, maxbuckets, MIN_SKETCH_BUCKETS);
+		state = ddsketch_aggstate_allocate(alpha, maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
@@ -2504,7 +1787,7 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 
 		check_sketch_parameters(alpha, maxbuckets);
 
-		state = ddsketch_aggstate_allocate(0, 0, alpha,
+		state = ddsketch_aggstate_allocate(alpha,
 										   maxbuckets,
 										   MIN_SKETCH_BUCKETS);
 	}
@@ -2578,7 +1861,7 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 
 		check_sketch_parameters(alpha, maxbuckets);
 
-		state = ddsketch_aggstate_allocate(0, 0, alpha,
+		state = ddsketch_aggstate_allocate(alpha,
 										   maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
@@ -3133,15 +2416,15 @@ double_to_array(FunctionCallInfo fcinfo, double *d, int len)
 }
 
 static double
-ddsketch_log_gamma(ddsketch_aggstate_t *state, double value)
+ddsketch_log_gamma(double multiplier, double value)
 {
-	return log(value) / log(2.0) * state->multiplier;
+	return log(value) / log(2.0) * multiplier;
 }
 
 static double
-ddsketch_pow_gamma(ddsketch_aggstate_t *state, double value)
+ddsketch_pow_gamma(double multiplier, double value)
 {
-	return pow(2.0, (value / state->multiplier));
+	return pow(2.0, (value / multiplier));
 }
 
 static double
@@ -3162,9 +2445,9 @@ ddsketch_map_upper_bound(double alpha, int index)
 }
 
 static int
-ddsketch_map_index(ddsketch_aggstate_t *state, double value)
+ddsketch_map_index(int offset, double multiplier, double value)
 {
-	return (int)(ceil(ddsketch_log_gamma(state, value)) + state->offset);
+	return (int) (ceil(ddsketch_log_gamma(multiplier, value)) + offset);
 }
 
 static int
@@ -3178,9 +2461,9 @@ ddsketch_map_index2(double alpha, double value)
 }
 
 static double
-ddsketch_map_value(ddsketch_aggstate_t *state, double index)
+ddsketch_map_value(int offset, double multiplier, double gamma, double index)
 {
-	return ddsketch_pow_gamma(state, index - state->offset) * (2.0 / (1 + state->gamma));
+	return ddsketch_pow_gamma(multiplier, index - offset) * (2.0 / (1 + gamma));
 }
 
 Datum
@@ -3487,122 +2770,15 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_trimmed(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
-		double	low = PG_GETARG_FLOAT8(4);
-		double	high = PG_GETARG_FLOAT8(5);
-
-		MemoryContext	oldcontext;
-
-		check_trim_values(low, high);
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		state = ddsketch_aggstate_allocate(0, 0, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		state->trim_low = low;
-		state->trim_high = high;
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), 1);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 Datum
 ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS)
 {
-	int64				count;
-	ddsketch_aggstate_t *state;
-	MemoryContext		aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_double_count called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	/* if there's no ddsketch aggstate allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	maxbuckets = PG_GETARG_INT32(4);
-		double	low = PG_GETARG_FLOAT8(5);
-		double	high = PG_GETARG_FLOAT8(6);
-
-		MemoryContext	oldcontext;
-
-		check_trim_values(low, high);
-
-		check_sketch_parameters(alpha, maxbuckets);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		state = ddsketch_aggstate_allocate(0, 0, alpha,
-										   maxbuckets, MIN_SKETCH_BUCKETS);
-
-		state->trim_low = low;
-		state->trim_high = high;
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	if (PG_ARGISNULL(2))
-		count = 1;
-	else
-		count = PG_GETARG_INT64(2);
-
-	/* can't add values with non-positive counts */
-	if (count <= 0)
-		elog(ERROR, "invalid count value %ld, must be a positive value", count);
-
-	ddsketch_add(state, PG_GETARG_FLOAT8(1), count);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -3612,73 +2788,8 @@ ddsketch_add_double_count_trimmed(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_sketch_trimmed(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t *state;
-	ddsketch_t		   *sketch;
-
-	MemoryContext aggcontext;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_add_sketch called in non-aggregate context");
-
-	/*
-	 * We want to skip NULL values altogether - we return either the existing
-	 * ddsketch (if it already exists) or NULL.
-	 */
-	if (PG_ARGISNULL(1))
-	{
-		if (PG_ARGISNULL(0))
-			PG_RETURN_NULL();
-
-		/* if there already is a state accumulated, don't forget it */
-		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
-	}
-
-	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
-
-	/* if there's no aggregate state allocated, create it now */
-	if (PG_ARGISNULL(0))
-	{
-		double	low = PG_GETARG_FLOAT8(2);
-		double	high = PG_GETARG_FLOAT8(3);
-
-		MemoryContext	oldcontext;
-
-		check_trim_values(low, high);
-
-		oldcontext = MemoryContextSwitchTo(aggcontext);
-
-		state = ddsketch_aggstate_allocate(0, 0, sketch->alpha,
-										   sketch->maxbuckets, sketch->nbuckets);
-		state->trim_low = low;
-		state->trim_high = high;
-
-		MemoryContextSwitchTo(oldcontext);
-	}
-	else
-		state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	AssertCheckDDSketch(sketch);
-	AssertCheckDDSketchAggState(state);
-
-	/* check that the sketch and aggstate are compatible */
-	if (state->alpha != sketch->alpha)
-		elog(ERROR, "can't merge sketches with different alpha values");
-
-	ddsketch_merge_buckets(state, false,
-						   SKETCH_BUCKETS_NEGATIVE(sketch),
-						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
-
-	ddsketch_merge_buckets(state, true,
-						   SKETCH_BUCKETS_POSITIVE(sketch),
-						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
-
-	AssertCheckDDSketchAggState(state);
-
-	PG_RETURN_POINTER(state);
+	elog(ERROR, "extension upgrade needed");
+	PG_RETURN_NULL();
 }
 
 /*
@@ -3764,28 +2875,7 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 Datum
 ddsketch_trimmed_avg(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	   *state;
-	MemoryContext	aggcontext;
-	double			sum;
-	int64			count;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_percentiles called in non-aggregate context");
-
-	/* if there's no sketch, return NULL */
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
-
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_trimmed_agg(state->buckets, state->nbuckets, state->nbuckets_negative,
-						 state->alpha, state->count, state->trim_low, state->trim_high,
-						 &sum, &count);
-
-	if (count > 0)
-		PG_RETURN_FLOAT8(sum / count);
-
+	elog(ERROR, "extension upgrade needed");
 	PG_RETURN_NULL();
 }
 
@@ -3796,28 +2886,7 @@ ddsketch_trimmed_avg(PG_FUNCTION_ARGS)
 Datum
 ddsketch_trimmed_sum(PG_FUNCTION_ARGS)
 {
-	ddsketch_aggstate_t	   *state;
-	MemoryContext	aggcontext;
-	double			sum;
-	int64			count;
-
-	/* cannot be called directly because of internal-type argument */
-	if (!AggCheckCallContext(fcinfo, &aggcontext))
-		elog(ERROR, "ddsketch_percentiles called in non-aggregate context");
-
-	/* if there's no sketch, return NULL */
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
-
-	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
-
-	ddsketch_trimmed_agg(state->buckets, state->nbuckets, state->nbuckets_negative,
-						 state->alpha, state->count, state->trim_low, state->trim_high,
-						 &sum, &count);
-
-	if (count > 0)
-		PG_RETURN_FLOAT8(sum);
-
+	elog(ERROR, "extension upgrade needed");
 	PG_RETURN_NULL();
 }
 
@@ -3835,6 +2904,8 @@ ddsketch_sketch_sum(PG_FUNCTION_ARGS)
 	int64		count;
 
 	AssertCheckDDSketch(sketch);
+
+	check_trim_values(low, high);
 
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
 						 sketch->alpha, sketch->count, low, high, &sum, &count);
@@ -3859,6 +2930,8 @@ ddsketch_sketch_avg(PG_FUNCTION_ARGS)
 	int64		count;
 
 	AssertCheckDDSketch(sketch);
+
+	check_trim_values(low, high);
 
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
 						 sketch->alpha, sketch->count, low, high, &sum, &count);
