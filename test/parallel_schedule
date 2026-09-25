@@ -1,2 +1,2 @@
 test: _init
-test: combine copy ddsketch union arrays nonfinite
+test: combine copy ddsketch union arrays nonfinite input
