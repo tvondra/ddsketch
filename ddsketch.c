@@ -2741,7 +2741,7 @@ ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
 		values[0] = Int32GetDatum(fctx->call_cntr);
 		values[1] = Int32GetDatum(bucket->index);
 
-		if (fctx->call_cntr > sketch->nbuckets_negative)
+		if (fctx->call_cntr >= sketch->nbuckets_negative)
 		{
 			values[2] = Float8GetDatum(lower_bound);
 			values[3] = Float8GetDatum(upper_bound);
