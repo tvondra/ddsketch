@@ -1377,16 +1377,11 @@ ddsketch_add_sketch_array_values(PG_FUNCTION_ARGS)
 Datum
 ddsketch_percentiles(PG_FUNCTION_ARGS)
 {
-	ddsketch_t	   *sketch;
+	ddsketch_t	   *sketch = PG_GETARG_DDSKETCH(0);
 	double		   *ret;
-	double			percentile;
+	double			percentile = PG_GETARG_FLOAT8(1);
 
-	/* if there's no ddsketch, return NULL */
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
-
-	sketch = PG_GETARG_DDSKETCH(0);
-	percentile = PG_GETARG_FLOAT8(1);
+	check_percentiles(&percentile, 1);
 
 	ret = ddsketch_compute_quantiles(sketch, 1, &percentile);
 
@@ -1400,16 +1395,9 @@ ddsketch_percentiles(PG_FUNCTION_ARGS)
 Datum
 ddsketch_percentiles_of(PG_FUNCTION_ARGS)
 {
-	ddsketch_t	   *sketch;
+	ddsketch_t	   *sketch = PG_GETARG_DDSKETCH(0);
 	double		   *ret;
-	double			value;
-
-	/* if there's no ddsketch, return NULL */
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
-
-	sketch = PG_GETARG_DDSKETCH(0);
-	value = PG_GETARG_FLOAT8(1);
+	double			value = PG_GETARG_FLOAT8(1);
 
 	ret = ddsketch_compute_quantiles_of(sketch, 1, &value);
 
