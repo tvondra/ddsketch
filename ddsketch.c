@@ -298,8 +298,10 @@ Datum ddsketch_trimmed_sum(PG_FUNCTION_ARGS);
 Datum ddsketch_sketch_sum(PG_FUNCTION_ARGS);
 Datum ddsketch_sketch_avg(PG_FUNCTION_ARGS);
 
-static Datum double_to_array(FunctionCallInfo fcinfo, double * d, int len);
-static double *array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int * len);
+static ArrayType *double_array_allocate(int nitems);
+static const double *array_to_double(ArrayType *v, const char *what, int *len);
+
+static ddsketch_aggstate_t *ddsketch_copy(ddsketch_aggstate_t *state);
 
 /* mapping to bucket indexes etc. */
 static double ddsketch_log_gamma(double multiplier, double value);
@@ -434,7 +436,7 @@ AssertCheckDDSketchAggState(ddsketch_aggstate_t *state)
  */
 static double *
 ddsketch_compute_quantiles(ddsketch_t *sketch,
-						   int npercentiles, double *percentiles)
+						   int npercentiles, const double *percentiles)
 {
 	int			i;
 	double	   *result = palloc(sizeof(double) * npercentiles);
@@ -526,7 +528,7 @@ ddsketch_compute_quantiles(ddsketch_t *sketch,
  */
 static double *
 ddsketch_compute_quantiles_of(ddsketch_t *sketch,
-							  int nvalues, double *values)
+							  int nvalues, const double *values)
 {
 	int		i;
 	double	   *result = palloc(sizeof(double) * nvalues);
@@ -936,7 +938,7 @@ ddsketch_aggstate_to_ddsketch(ddsketch_aggstate_t *state)
 
 /* check that the requested percentiles are valid */
 static void
-check_percentiles(double *percentiles, int npercentiles)
+check_percentiles(const double *percentiles, int npercentiles)
 {
 	int i;
 
@@ -1442,23 +1444,30 @@ ddsketch_array_percentiles(PG_FUNCTION_ARGS)
 {
 	double	*result;
 	ddsketch_t *sketch;
-	double	   *percentiles;
+	const double	   *percentiles;
 	int			npercentiles;
-
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
+	ArrayType	   *array;
 
 	sketch = PG_GETARG_DDSKETCH(0);
 
-	percentiles = array_to_double(fcinfo,
-								  PG_GETARG_ARRAYTYPE_P(1),
-								  &npercentiles);
+	array = PG_GETARG_ARRAYTYPE_P(1);
+	percentiles = array_to_double(array,
+								  "a percentile value", &npercentiles);
 
 	check_percentiles(percentiles, npercentiles);
 
 	result = ddsketch_compute_quantiles(sketch, npercentiles, percentiles);
 
-	return double_to_array(fcinfo, result, npercentiles);
+	PG_FREE_IF_COPY(array, 1);
+
+	/* copy the results into the array */
+	array = double_array_allocate(npercentiles);
+	memcpy((double *) ARR_DATA_PTR(array), result, sizeof(double) * npercentiles);
+
+	/* free the result */
+	pfree(result);
+
+	PG_RETURN_ARRAYTYPE_P(array);
 }
 
 /*
@@ -1469,23 +1478,30 @@ Datum
 ddsketch_array_percentiles_of(PG_FUNCTION_ARGS)
 {
 	double	*result;
-	double	   *values;
+	const double	   *values;
 	int			nvalues;
+	ArrayType	   *array;
 
 	ddsketch_t *sketch;
 
-	if (PG_ARGISNULL(0))
-		PG_RETURN_NULL();
+	array = PG_GETARG_ARRAYTYPE_P(1);
+	values = array_to_double(array,
+							 "a value", &nvalues);
 
 	sketch = PG_GETARG_DDSKETCH(0);
 
-	values = array_to_double(fcinfo,
-							 PG_GETARG_ARRAYTYPE_P(1),
-							 &nvalues);
-
 	result = ddsketch_compute_quantiles_of(sketch, nvalues, values);
 
-	return double_to_array(fcinfo, result, nvalues);
+	PG_FREE_IF_COPY(array, 1);
+
+	/* copy the results into the array */
+	array = double_array_allocate(nvalues);
+	memcpy((double *) ARR_DATA_PTR(array), result, sizeof(double) * nvalues);
+
+	/* free the result */
+	pfree(result);
+
+	PG_RETURN_ARRAYTYPE_P(array);
 }
 
 Datum
@@ -1800,9 +1816,10 @@ Datum
 ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 {
 	ddsketch_aggstate_t *state;
-	double			   *values;
+	const double	   *values;
 	int					nvalues;
 	int					i;
+	ArrayType		   *array;
 
 	/*
 	 * We want to skip NULL values altogether - we return either the existing
@@ -1844,9 +1861,9 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 	else
 		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
 
-	values = array_to_double(fcinfo,
-							 PG_GETARG_ARRAYTYPE_P(1),
-							 &nvalues);
+	array = PG_GETARG_ARRAYTYPE_P(1);
+	values = array_to_double(array,
+							 "an element", &nvalues);
 
 	for (i = 0; i < nvalues; i++)
 		ddsketch_add(state, values[i], 1);
@@ -2298,47 +2315,41 @@ ddsketch_count(PG_FUNCTION_ARGS)
 }
 
 /*
- * Transform an input FLOAT8 SQL array to a plain double C array.
+ * Return a read-only view of an input FLOAT8 SQL array as C doubles.
  *
  * This expects a single-dimensional float8 array, fails otherwise.
+ *
+ * "what" names a single element of the array, with the article, and is used
+ * when reporting a NULL element. The callers pass arrays of different things
+ * (percentiles, hypothetical values, values to add to a digest), and a message
+ * naming the wrong one points at the wrong argument.
+ *
+ * The caller must keep the detoasted array alive while using the view.
  */
-static double *
-array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int *len)
+static const double *
+array_to_double(ArrayType *v, const char *what, int *len)
 {
-	double *result;
 	int		nitems,
 		   *dims,
 			ndims;
 	Oid		element_type;
-	int16	typlen;
-	bool	typbyval;
-	char	typalign;
-	int		i;
-
-	/* deconstruct_array */
-	Datum	   *elements;
-	bool	   *nulls;
-	int			nelements;
 
 	ndims = ARR_NDIM(v);
 	dims = ARR_DIMS(v);
 	nitems = ArrayGetNItems(ndims, dims);
 
+	/*
+	 * Reject empty arrays explicitly. An empty array has ndims = 0, so
+	 * without this it would be caught by the single-dimension check below
+	 * and reported as a dimensionality problem, which is misleading - the
+	 * array is well-formed, it just has nothing in it.
+	 */
+	if (nitems == 0)
+		elog(ERROR, "the array must not be empty");
+
 	/* this is a special-purpose function for single-dimensional arrays */
 	if (ndims != 1)
 		elog(ERROR, "expected a single-dimensional array (dims = %d)", ndims);
-
-	/*
-	 * if there are no elements, set the length to 0 and return NULL
-	 *
-	 * XXX Can this actually happen? for empty arrays we seem to error out
-	 * on the preceding check, i.e. ndims = 0.
-	 */
-	if (nitems == 0)
-	{
-		(*len) = 0;
-		return NULL;
-	}
 
 	element_type = ARR_ELEMTYPE(v);
 
@@ -2346,50 +2357,49 @@ array_to_double(FunctionCallInfo fcinfo, ArrayType *v, int *len)
 	if (element_type != FLOAT8OID)
 		elog(ERROR, "array_to_double expects FLOAT8 array");
 
-	/* allocate space for enough elements */
-	result = (double*) palloc(nitems * sizeof(double));
+	if (array_contains_nulls(v))
+		elog(ERROR, "NULL not allowed as %s", what);
 
-	get_typlenbyvalalign(element_type, &typlen, &typbyval, &typalign);
+	(*len) = nitems;
 
-	deconstruct_array(v, element_type, typlen, typbyval, typalign,
-					  &elements, &nulls, &nelements);
-
-	/* we should get the same counts here */
-	Assert(nelements == nitems);
-
-	for (i = 0; i < nelements; i++)
-	{
-		if (nulls[i])
-			elog(ERROR, "NULL not allowed as a percentile value");
-
-		result[i] = DatumGetFloat8(elements[i]);
-	}
-
-	(*len) = nelements;
-
-	return result;
+	/* Non-NULL float8 elements have the same layout as a C double array. */
+	return (const double *) ARR_DATA_PTR(v);
 }
 
 /*
- * construct an SQL array from a simple C double array
+ * Allocate a one-dimensional, non-NULL float8 array for direct result writes.
+ * Array storage uses native doubles even on platforms with pass-by-reference
+ * float8 Datums, so no per-element Datum allocations are needed.
  */
-static Datum
-double_to_array(FunctionCallInfo fcinfo, double *d, int len)
+static ArrayType *
+double_array_allocate(int nitems)
 {
-	ArrayBuildState *astate = NULL;
-	int		 i;
+	ArrayType  *array;
+	Size		size;
 
-	for (i = 0; i < len; i++)
-	{
-		/* stash away this field */
-		astate = accumArrayResult(astate,
-								  Float8GetDatum(d[i]),
-								  false,
-								  FLOAT8OID,
-								  CurrentMemoryContext);
-	}
+	/* should not happen */
+	if (nitems <= 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("invalid array size (%d)", nitems)));
 
-	PG_RETURN_DATUM(makeArrayResult(astate, CurrentMemoryContext));
+	if (nitems > MaxArraySize)
+		ereport(ERROR,
+				(errcode(ERRCODE_PROGRAM_LIMIT_EXCEEDED),
+				 errmsg("array size exceeds the maximum allowed (%d)",
+						(int) MaxArraySize)));
+
+	size = ARR_OVERHEAD_NONULLS(1) + nitems * sizeof(double);
+
+	array = (ArrayType *) palloc(size);
+	SET_VARSIZE(array, size);
+	ARR_NDIM(array) = 1;
+	array->dataoffset = 0;
+	ARR_ELEMTYPE(array) = FLOAT8OID;
+	ARR_DIMS(array)[0] = nitems;
+	ARR_LBOUND(array)[0] = 1;
+
+	return array;
 }
 
 static double
