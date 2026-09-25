@@ -263,9 +263,9 @@ FROM ddsketch_buckets(0.05, -5, -0.5);
 -- The sketch below has count = 2, zero_count = 2, nbuckets = 0.
 SELECT (ddsketch(v, 0.05, 1024))::text AS before
   FROM (VALUES (5e-324::float8), (-5e-324::float8)) t(v);
-                                 before                                  
--------------------------------------------------------------------------
- flags 0 count 2 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 0 0
+                               before                                
+---------------------------------------------------------------------
+ flags 0 count 2 alpha 0.05 zero_count 2 maxbuckets 1024 buckets 0 0
 (1 row)
 
 -- Adding one ordinary value must yield count = 3, zero_count = 2.
@@ -273,27 +273,27 @@ SELECT (ddsketch(v, 0.05, 1024))::text AS before
 SELECT ddsketch_add((SELECT ddsketch(v, 0.05, 1024)
                        FROM (VALUES (5e-324::float8), (-5e-324::float8)) t(v)),
                     1.0, 0.05, 1024)::text AS after;
-                                     after                                      
---------------------------------------------------------------------------------
- flags 0 count 3 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 1 0 (0, 1)
+                                   after                                    
+----------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 2 maxbuckets 1024 buckets 1 0 (0, 1)
 (1 row)
 
 -- a sketch with two negative buckets and no positive ones:
 --   "... buckets 2 2 (7, 1) (0, 1)"   (nbuckets = 2, nbuckets_negative = 2)
 SELECT (ddsketch(v, 0.05, 1024))::text AS before
   FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v);
-                                        before                                         
----------------------------------------------------------------------------------------
- flags 0 count 2 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 2 2 (7, 1) (0, 1)
+                                      before                                       
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 2 (7, 1) (0, 1)
 (1 row)
 
 -- expected: "buckets 3 2 (7, 1) (0, 1) (17, 1)"
 SELECT ddsketch_add((SELECT ddsketch(v, 0.05, 1024)
                        FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v)),
                     5.0, 0.05, 1024)::text AS after;
-                                             after                                             
------------------------------------------------------------------------------------------------
- flags 0 count 3 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 3 2 (7, 1) (0, 1) (17, 1)
+                                           after                                           
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 3 2 (7, 1) (0, 1) (17, 1)
 (1 row)
 
 -- same through ddsketch_union()'
@@ -301,8 +301,8 @@ SELECT ddsketch_union((SELECT ddsketch(v, 0.05, 1024)
                          FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v)),
                       (SELECT ddsketch(v, 0.05, 1024)
                          FROM (VALUES (5.0::float8)) t(v)))::text;
-                                        ddsketch_union                                         
------------------------------------------------------------------------------------------------
- flags 0 count 3 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 3 2 (7, 1) (0, 1) (17, 1)
+                                      ddsketch_union                                       
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 3 2 (7, 1) (0, 1) (17, 1)
 (1 row)
 

@@ -27,9 +27,14 @@
 #include "libpq/pqformat.h"
 #include "miscadmin.h"
 #include "utils/array.h"
+#include "utils/builtins.h"
 #include "utils/lsyscache.h"
 #include "catalog/pg_type.h"
 #include "funcapi.h"
+
+#if PG_VERSION_NUM >= 120000
+#include "utils/float.h"	/* float8out_internal */
+#endif
 
 PG_MODULE_MAGIC;
 
@@ -2265,19 +2270,21 @@ ddsketch_out(PG_FUNCTION_ARGS)
 	int			i;
 	ddsketch_t  *sketch = PG_GETARG_DDSKETCH(0);
 	StringInfoData	str;
+	char	    *alpha = float8out_internal(sketch->alpha);
 
 	AssertCheckDDSketch(sketch);
 
 	initStringInfo(&str);
 
-	appendStringInfo(&str, "flags %d count " INT64_FORMAT " alpha %lf zero_count " INT64_FORMAT " maxbuckets %d buckets %d %d",
-					 sketch->flags, sketch->count, sketch->alpha, sketch->zero_count,
+	appendStringInfo(&str, "flags %d count " INT64_FORMAT " alpha %s zero_count " INT64_FORMAT " maxbuckets %d buckets %d %d",
+					 sketch->flags, sketch->count, alpha, sketch->zero_count,
 					 sketch->maxbuckets, sketch->nbuckets, sketch->nbuckets_negative);
 
 	for (i = 0; i < sketch->nbuckets; i++)
 		appendStringInfo(&str, " (%d, " INT64_FORMAT ")", sketch->buckets[i].index, sketch->buckets[i].count);
 
 	PG_FREE_IF_COPY(sketch, 0);
+	pfree(alpha);
 
 	PG_RETURN_CSTRING(str.data);
 }
