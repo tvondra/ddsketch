@@ -14,8 +14,7 @@ MODULES = ddsketch
 
 CFLAGS=`pg_config --includedir-server`
 
-TESTS        = $(wildcard test/sql/*.sql)
-REGRESS      = $(patsubst test/sql/%.sql,%,$(TESTS))
+REGRESS      = --schedule=$(srcdir)/test/parallel_schedule
 REGRESS_OPTS = --inputdir=test
 
 PG_CONFIG = pg_config
