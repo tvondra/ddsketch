@@ -3394,3 +3394,10 @@ SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), -0.1, 1.0)   BETWEEN 4750000
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.1, 1.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.9, 0.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.5, 0.5)   BETWEEN 4750000 AND 5250000 FROM random_data;
+
+-- Scalar percentiles need the same validation as percentile arrays.
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), -0.1);
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 1.1);
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'NaN'::float8);
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), '-Infinity'::float8);
+SELECT ddsketch_percentile(ddsketch(1.0, 0.05, 16), 'Infinity'::float8);
