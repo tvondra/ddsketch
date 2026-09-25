@@ -794,6 +794,12 @@ ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 
 	AssertCheckDDSketchAggState(state);
 
+	/* make sure we're not adding bogus NaN/infinity values as centroids */
+	if (!isfinite(value))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("all values added to t-digest must be finite")));
+
 	state->count += count;
 
 	if (value > state->min_indexable_value)
@@ -944,7 +950,7 @@ check_percentiles(const double *percentiles, int npercentiles)
 
 	for (i = 0; i < npercentiles; i++)
 	{
-		if ((percentiles[i] < 0.0) || (percentiles[i] > 1.0))
+		if (!((percentiles[i] >= 0.0) && (percentiles[i] <= 1.0)))
 			elog(ERROR, "invalid percentile value %f, should be in [0.0, 1.0]",
 				 percentiles[i]);
 	}
@@ -954,7 +960,7 @@ check_percentiles(const double *percentiles, int npercentiles)
 static void
 check_sketch_parameters(double alpha, int nbuckets)
 {
-	if (alpha < MIN_SKETCH_ALPHA || alpha > MAX_SKETCH_ALPHA)
+	if (!((alpha >= MIN_SKETCH_ALPHA) && (alpha <= MAX_SKETCH_ALPHA)))
 		elog(ERROR, "invalid alpha value %f", alpha);
 
 	if (nbuckets < MIN_SKETCH_BUCKETS || nbuckets > MAX_SKETCH_BUCKETS)
@@ -964,16 +970,16 @@ check_sketch_parameters(double alpha, int nbuckets)
 static void
 check_trim_values(double low, double high)
 {
-	if (low < 0.0)
+	if (!((low >= 0.0) && (low <= 1.0)))
 		elog(ERROR, "invalid low percentile value %f, should be in [0.0, 1.0]",
 			 low);
 
-	if (high > 1.0)
+	if (!((high >= 0.0) && (high <= 1.0)))
 		elog(ERROR, "invalid high percentile value %f, should be in [0.0, 1.0]",
 			 high);
 
-	if (low >= high)
-		elog(ERROR, "invalid low/high percentile values %f/%f, should be low < high",
+	if (low > high)
+		elog(ERROR, "invalid low/high percentile values %f/%f, should be low <= high",
 			 low, high);
 }
 

@@ -5553,6 +5553,10 @@ ERROR:  invalid low percentile value -0.100000, should be in [0.0, 1.0]
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.1, 1.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
 ERROR:  invalid high percentile value 1.100000, should be in [0.0, 1.0]
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.9, 0.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
-ERROR:  invalid low/high percentile values 0.900000/0.100000, should be low < high
+ERROR:  invalid low/high percentile values 0.900000/0.100000, should be low <= high
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.5, 0.5)   BETWEEN 4750000 AND 5250000 FROM random_data;
-ERROR:  invalid low/high percentile values 0.500000/0.500000, should be low < high
+ ?column? 
+----------
+ f
+(1 row)
+
