@@ -2659,7 +2659,7 @@ ddsketch_sketch_info(PG_FUNCTION_ARGS)
 	max_indexable_value = DBL_MAX / gamma;
 
 	values[0] = UInt64GetDatum(SKETCH_BYTES(sketch));
-	values[1] = UInt32GetDatum(sketch->flags);
+	values[1] = Int32GetDatum(sketch->flags);
 	values[2] = Float8GetDatum(sketch->alpha);
 	values[3] = Int64GetDatum(sketch->count);
 	values[4] = Int64GetDatum(sketch->zero_count);
