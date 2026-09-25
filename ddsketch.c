@@ -1425,6 +1425,7 @@ ddsketch_sketch(PG_FUNCTION_ARGS)
 	ddsketch_t			   *sketch;
 	ddsketch_aggstate_t	   *state;
 	MemoryContext	aggcontext;
+	bool			shared;
 
 	/* cannot be called directly because of internal-type argument */
 	if (!AggCheckCallContext(fcinfo, &aggcontext))
@@ -1436,7 +1437,15 @@ ddsketch_sketch(PG_FUNCTION_ARGS)
 
 	state = (ddsketch_aggstate_t *) PG_GETARG_POINTER(0);
 
+	/* windows and shared aggregates may need the original state again. */
+	shared = AggStateIsShared(fcinfo);
+	if (shared)
+		state = ddsketch_copy(state);
+
 	sketch = ddsketch_aggstate_to_ddsketch(state);
+
+	if (shared)
+		pfree(state);
 
 	PG_RETURN_POINTER(sketch);
 }
