@@ -101,6 +101,28 @@ ERROR:  invalid sketch - descending indexes in the positive part
 LINE 1: select 'flags 0 count 1000 alpha 0.050000 zero_count 0 maxbu...
                ^
 -- test info functions
+SELECT * FROM ddsketch_info(NULL::double precision);
+ min_indexable | max_indexable 
+---------------+---------------
+               |              
+(1 row)
+
+SELECT * FROM ddsketch_info(NULL::ddsketch);
+ bytes | flags | alpha | count | zero_count | max_buckets | negative_buckets | positive_buckets | min_indexable | max_indexable 
+-------+-------+-------+-------+------------+-------------+------------------+------------------+---------------+---------------
+       |       |       |       |            |             |                  |                  |               |              
+(1 row)
+
+SELECT * FROM ddsketch_buckets(NULL::double precision, NULL::double precision, NULL::double precision);
+ index | bucket_index | bucket_min | bucket_max 
+-------+--------------+------------+------------
+(0 rows)
+
+SELECT * FROM ddsketch_buckets(NULL::ddsketch);
+ index | bucket_index | bucket_lower | bucket_upper | bucket_length | bucket_count 
+-------+--------------+--------------+--------------+---------------+--------------
+(0 rows)
+
 WITH data AS (SELECT 0.5 + i/10000.0 AS v FROM generate_series(1,10000) s(i)),
      sketch AS (SELECT ddsketch(v, 0.05, 128) s FROM data)
 SELECT
