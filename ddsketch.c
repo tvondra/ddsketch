@@ -796,7 +796,11 @@ ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("all values added to ddsketch must be finite")));
 
-	state->count += count;
+	/* checking the total also bounds every individual bucket count */
+	if (pg_add_s64_overflow(state->count, count, &state->count))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("ddsketch count overflow")));
 
 	if (value > state->min_indexable_value)
 	{
@@ -1297,6 +1301,14 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	 * the first sketch.
 	 */
 
+	/* checking the total also bounds every individual bucket count */
+	if (pg_add_s64_overflow(state->count, sketch->count, &state->count))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("ddsketch count overflow")));
+
+	state->zero_count += sketch->zero_count;
+
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
 						   SKETCH_BUCKETS_NEGATIVE_COUNT(sketch));
@@ -1304,9 +1316,6 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	ddsketch_merge_buckets(state, true,
 						   SKETCH_BUCKETS_POSITIVE(sketch),
 						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
 
 	AssertCheckDDSketchAggState(state);
 
@@ -1585,6 +1594,14 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	 * the first sketch.
 	 */
 
+	/* checking the total also bounds every individual bucket count */
+	if (pg_add_s64_overflow(state1->count, state2->count, &state1->count))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("ddsketch count overflow")));
+
+	state1->zero_count += state2->zero_count;
+
 	ddsketch_merge_buckets(state1, false,
 						   STATE_BUCKETS_NEGATIVE(state2),
 						   STATE_BUCKETS_NEGATIVE_COUNT(state2));
@@ -1592,9 +1609,6 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	ddsketch_merge_buckets(state1, true,
 						   STATE_BUCKETS_POSITIVE(state2),
 						   STATE_BUCKETS_POSITIVE_COUNT(state2));
-
-	state1->zero_count += state2->zero_count;
-	state1->count += state2->count;
 
 	AssertCheckDDSketchAggState(state1);
 
@@ -1917,6 +1931,14 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	 * the first sketch.
 	 */
 
+	/* checking the total also bounds every individual bucket count */
+	if (pg_add_s64_overflow(state->count, sketch->count, &state->count))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("ddsketch count overflow")));
+
+	state->zero_count += sketch->zero_count;
+
 	/* copy data from sketch to aggstate */
 	ddsketch_merge_buckets(state, false,
 						   SKETCH_BUCKETS_NEGATIVE(sketch),
@@ -1925,9 +1947,6 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	ddsketch_merge_buckets(state, true,
 						   SKETCH_BUCKETS_POSITIVE(sketch),
 						   SKETCH_BUCKETS_POSITIVE_COUNT(sketch));
-
-	state->zero_count += sketch->zero_count;
-	state->count += sketch->count;
 
 	AssertCheckDDSketchAggState(state);
 
