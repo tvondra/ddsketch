@@ -917,6 +917,13 @@ ddsketch_aggstate_allocate(double alpha, int maxbuckets, int nbuckets)
 	return state;
 }
 
+static void
+ddsketch_aggstate_free(ddsketch_aggstate_t *state)
+{
+	pfree(state->buckets);
+	pfree(state);
+}
+
 /*
  * Serialize the aggregate state into the compact ddsketch representation.
  */
@@ -1281,7 +1288,7 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 		PG_RETURN_DATUM(PG_GETARG_DATUM(0));
 	}
 
-	sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(1));
+	sketch = PG_GETARG_DDSKETCH(1);
 
 	/* if there's no aggregate state allocated, create it now */
 	if (PG_ARGISNULL(0))
@@ -1317,6 +1324,8 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	state->count += sketch->count;
 
 	AssertCheckDDSketchAggState(state);
+
+	PG_FREE_IF_COPY(sketch, 1);
 
 	PG_RETURN_POINTER(state);
 }
@@ -1452,6 +1461,7 @@ ddsketch_array_percentiles(PG_FUNCTION_ARGS)
 
 	result = ddsketch_compute_quantiles(sketch, npercentiles, percentiles);
 
+	PG_FREE_IF_COPY(sketch, 0);
 	PG_FREE_IF_COPY(array, 1);
 
 	/* copy the results into the array */
@@ -1486,6 +1496,7 @@ ddsketch_array_percentiles_of(PG_FUNCTION_ARGS)
 
 	result = ddsketch_compute_quantiles_of(sketch, nvalues, values);
 
+	PG_FREE_IF_COPY(sketch, 0);
 	PG_FREE_IF_COPY(array, 1);
 
 	/* copy the results into the array */
@@ -1672,6 +1683,7 @@ ddsketch_sketch_to_aggstate(ddsketch_t *sketch)
 Datum
 ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 {
+	ddsketch_t *sketch;
 	ddsketch_aggstate_t *state;
 
 	/*
@@ -1711,7 +1723,12 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 		state = ddsketch_aggstate_allocate(alpha, maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
-		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+	{
+		sketch = PG_GETARG_DDSKETCH(0);
+		state = ddsketch_sketch_to_aggstate(sketch);
+
+		PG_FREE_IF_COPY(sketch, 0);
+	}
 
 	AssertCheckDDSketchAggState(state);
 
@@ -1719,7 +1736,10 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 
 	AssertCheckDDSketchAggState(state);
 
-	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+	ddsketch_aggstate_free(state);
+
+	PG_RETURN_POINTER(sketch);
 }
 
 /*
@@ -1739,6 +1759,7 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 {
 	int64				count;
 	ddsketch_aggstate_t *state;
+	ddsketch_t *sketch;
 
 	/*
 	 * We want to skip NULL values altogether - we return either the existing
@@ -1779,7 +1800,12 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 										   MIN_SKETCH_BUCKETS);
 	}
 	else
-		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+	{
+		sketch = PG_GETARG_DDSKETCH(0);
+		state = ddsketch_sketch_to_aggstate(sketch);
+
+		PG_FREE_IF_COPY(sketch, 0);
+	}
 
 	if (PG_ARGISNULL(2))
 		count = 1;
@@ -1792,7 +1818,10 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 
 	AssertCheckDDSketchAggState(state);
 
-	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+	ddsketch_aggstate_free(state);
+
+	PG_RETURN_POINTER(sketch);
 }
 
 /*
@@ -1809,6 +1838,7 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 Datum
 ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 {
+	ddsketch_t		  *sketch;
 	ddsketch_aggstate_t *state;
 	const double	   *values;
 	int					nvalues;
@@ -1853,7 +1883,12 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 										   maxbuckets, MIN_SKETCH_BUCKETS);
 	}
 	else
-		state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+	{
+		sketch = PG_GETARG_DDSKETCH(0);
+		state = ddsketch_sketch_to_aggstate(sketch);
+
+		PG_FREE_IF_COPY(sketch, 0);
+	}
 
 	array = PG_GETARG_ARRAYTYPE_P(1);
 	values = array_to_double(array,
@@ -1862,7 +1897,10 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 	for (i = 0; i < nvalues; i++)
 		ddsketch_add(state, values[i], 1);
 
-	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+	ddsketch_aggstate_free(state);
+
+	PG_RETURN_POINTER(sketch);
 }
 
 /*
@@ -1889,7 +1927,10 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	/* now we know both arguments are non-null */
 
 	/* parse the first ddsketch (we'll merge the other one into this) */
-	state = ddsketch_sketch_to_aggstate(PG_GETARG_DDSKETCH(0));
+	sketch = PG_GETARG_DDSKETCH(0);
+	state = ddsketch_sketch_to_aggstate(sketch);
+
+	PG_FREE_IF_COPY(sketch, 0);
 
 	/* parse the second ddsketch */
 	sketch = PG_GETARG_DDSKETCH(1);
@@ -1915,7 +1956,12 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 
 	AssertCheckDDSketchAggState(state);
 
-	PG_RETURN_POINTER(ddsketch_aggstate_to_ddsketch(state));
+	PG_FREE_IF_COPY(sketch, 1);
+
+	sketch = ddsketch_aggstate_to_ddsketch(state);
+	ddsketch_aggstate_free(state);
+
+	PG_RETURN_POINTER(sketch);
 }
 
 
@@ -2121,7 +2167,7 @@ Datum
 ddsketch_out(PG_FUNCTION_ARGS)
 {
 	int			i;
-	ddsketch_t  *sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
+	ddsketch_t  *sketch = PG_GETARG_DDSKETCH(0);
 	StringInfoData	str;
 
 	AssertCheckDDSketch(sketch);
@@ -2134,6 +2180,8 @@ ddsketch_out(PG_FUNCTION_ARGS)
 
 	for (i = 0; i < sketch->nbuckets; i++)
 		appendStringInfo(&str, " (%d, " INT64_FORMAT ")", sketch->buckets[i].index, sketch->buckets[i].count);
+
+	PG_FREE_IF_COPY(sketch, 0);
 
 	PG_RETURN_CSTRING(str.data);
 }
@@ -2275,7 +2323,7 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 Datum
 ddsketch_send(PG_FUNCTION_ARGS)
 {
-	ddsketch_t  *sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
+	ddsketch_t  *sketch = PG_GETARG_DDSKETCH(0);
 	StringInfoData buf;
 	int			i;
 
@@ -2297,15 +2345,20 @@ ddsketch_send(PG_FUNCTION_ARGS)
 		pq_sendint64(&buf, sketch->buckets[i].count);
 	}
 
+	PG_FREE_IF_COPY(sketch, 0);
+
 	PG_RETURN_BYTEA_P(pq_endtypsend(&buf));
 }
 
 Datum
 ddsketch_count(PG_FUNCTION_ARGS)
 {
-	ddsketch_t  *sketch = (ddsketch_t *) PG_DETOAST_DATUM(PG_GETARG_DATUM(0));
+	ddsketch_t  *sketch = PG_GETARG_DDSKETCH(0);
+	int64	count = sketch->count;
 
-	PG_RETURN_INT64(sketch->count);
+	PG_FREE_IF_COPY(sketch, 0);
+
+	PG_RETURN_INT64(count);
 }
 
 /*
@@ -2878,6 +2931,8 @@ ddsketch_sketch_sum(PG_FUNCTION_ARGS)
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
 						 sketch->alpha, sketch->count, low, high, &sum, &count);
 
+	PG_FREE_IF_COPY(sketch, 0);
+
 	if (count > 0)
 		PG_RETURN_FLOAT8(sum);
 
@@ -2903,6 +2958,8 @@ ddsketch_sketch_avg(PG_FUNCTION_ARGS)
 
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
 						 sketch->alpha, sketch->count, low, high, &sum, &count);
+
+	PG_FREE_IF_COPY(sketch, 0);
 
 	if (count > 0)
 		PG_RETURN_FLOAT8(sum / count);
