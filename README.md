@@ -28,24 +28,21 @@ collapsed buckets, which is not possible for ddsketch.
 
 ## Basic usage
 
-The extension provides two functions, which you can see as a replacement of
-`percentile_cont` aggregate:
+The extension provides several aggregate functions, building the `ddsketch`
+sketch from source data:
 
-* `ddsketch_percentile(value double precision,
-                       alpha double precision, nbuckets int,
-                       quantile double precision)`
+* `ddsketch(value double precision, alpha double precision, nbuckets int)`
 
-* `ddsketch_percentile(value double precision,
-                       alpha double precision, nbuckets int,
-                       quantiles double precision[])`
+And then a couple functions calculating percentiles (or inverse values)
+for a given `ddsketch` sketch:
 
-* `ddsketch_percentile_of(value double precision,
-                          alpha double precision, nbuckets int,
-                          value double precision)`
+* `ddsketch_percentile(sketch ddsketch, percentile double precision)`
 
-* `ddsketch_percentile_of(value double precision,
-                          alpha double precision, nbuckets int,
-                          values double precision[])`
+* `ddsketch_percentile(sketch ddsketch, percentiles double precision[])`
+
+* `ddsketch_percentile_of(sketch ddsketch, percentile double precision)`
+
+* `ddsketch_percentile_of(sketch ddsketch, percentiles double precision[])`
 
 That is, instead of running
 
@@ -56,7 +53,7 @@ SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY a) FROM t
 you might now run
 
 ```
-SELECT ddsketch_percentile(a, 0.05, 1024, 0.95) FROM t
+SELECT ddsketch_percentile(ddsketch(a, 0.05, 1024), 0.95) FROM t
 ```
 
 and similarly for the variants with array of percentiles. This should run
@@ -89,24 +86,7 @@ To compute the `ddsketch` use `ddsketch` aggregate function. The sketches can
 then be stored on disk and later summarized using the `ddsketch_percentile`
 functions (with `ddsketch` as the first argument).
 
-* `ddsketch(value double precision,
-            alpha double precision, nbuckets int)`
-
-* `ddsketch_percentile(sketch ddsketch,
-					   alpha double precision, nbuckets int,
-                       quantile double precision)`
-
-* `ddsketch_percentile(sketch ddsketch,
-                       alpha double precision, nbuckets int,
-                       quantiles double precision[])`
-
-* `ddsketch_percentile_of(sketch ddsketch,
-						  alpha double precision, nbuckets int,
-                          value double precision)`
-
-* `ddsketch_percentile_of(sketch ddsketch,
-						  alpha double precision, nbuckets int,
-                          values double precision[])`
+* `ddsketch(digest ddsketch) -> ddsketch`
 
 So for example you may do this:
 
@@ -121,7 +101,7 @@ INSERT INTO t SELECT 1000 * random(), 1000 * random(), 1000 * random()
 CREATE TABLE p AS SELECT a, b, ddsketch(c, 0.05, 1024) AS d FROM t GROUP BY a, b;
 
 -- summarize the data from "p" (compute the 95-th percentile)
-SELECT a, ddsketch_percentile(d, 0.95) FROM p GROUP BY a ORDER BY a;
+SELECT a, ddsketch_percentile(d, 0.95) FROM p ORDER BY a;
 ```
 
 The pre-aggregated table is indeed much smaller:
@@ -150,13 +130,13 @@ Time: 6956.566 ms (00:06.957)
 
 -- ddsketch estimate (no parallelism)
 SET max_parallel_workers_per_gather = 0;
-SELECT a, ddsketch_percentile(c, 0.05, 1024, 0.95) FROM t GROUP BY a ORDER BY a;
+SELECT a, ddsketch_percentile(ddsketch(c, 0.05, 1024), 0.95) FROM t GROUP BY a ORDER BY a;
   ...
 Time: 2873.116 ms (00:02.873)
 
 -- ddsketch estimate (4 workers)
 SET max_parallel_workers_per_gather = 4;
-SELECT a, ddsketch_percentile(c, 0.05, 1024, 0.95) FROM t GROUP BY a ORDER BY a;
+SELECT a, ddsketch_percentile(ddsketch(c, 0.05, 1024), 0.95) FROM t GROUP BY a ORDER BY a;
   ...
 Time: 893.538 ms
 ~~~
@@ -176,22 +156,10 @@ only improve for larger data set.
 
 When dealing with data sets with a lot of redundancy (values repeating
 many times), it may be more efficient to partially pre-aggregate the data
-and use functions that allow specifying the number of occurrences for each
-value. This reduces the number of SQL-function calls.
+and use an aggregate function that allow specifying the number of
+occurrences for each value. This reduces the number of SQL-function calls.
 
 There are five such aggregate functions:
-
-* `ddsketch_percentile(value double precision, count bigint, compression int,
-                      quantile double precision)`
-
-* `ddsketch_percentile(value double precision, count bigint, compression int,
-                      quantiles double precision[])`
-
-* `ddsketch_percentile_of(value double precision, count bigint, compression int,
-                         value double precision)`
-
-* `ddsketch_percentile_of(value double precision, count bigint, compression int,
-                         values double precision[])`
 
 * `ddsketch(value double precision, count bigint, compression int)`
 
@@ -248,191 +216,18 @@ END $$;
 The extension provides several variants of trimmed (truncated) average and
 sum aggregates, both for individual values and pre-aggregated sketches.
 
-* `ddsketch_sum(value double precision, alpha double precision, nbuckets int, low double precision, high double precision)`
-
-* `ddsketch_sum(value double precision, count bigint, alpha double precision, nbuckets int, low double precision, high double precision)`
-
 * `ddsketch_sum(sketch ddsketch, low double precision, high double precision)`
-
-* `ddsketch_avg(value double precision, alpha double precision, nbuckets int, low double precision, high double precision)`
-
-* `ddsketch_avg(value double precision, count bigint, alpha double precision, nbuckets int, low double precision, high double precision)`
 
 * `ddsketch_avg(sketch ddsketch, low double precision, high double precision)`
 
-The extension also provides two regular functions allowing to calculate
-trimmed (truncated) sum and average from an existing sketch.
-
-* `ddsketch_sketch_sum(digest ddsketch, low double precision, high double precision)`
-
-* `ddsketch_sketch_avg(digest ddsketch, low double precision, high double precision)`
-
-The `low` and `high` parameters specify where to truncate the data. This
-is useful when processing individual sketches without having to add an
-unnecessary aggregation.
+The `low` and `high` parameters specify where to truncate the data.
 
 
-## Functions
+## Aggregate Functions
 
-### `ddsketch_percentile(value, alpha, nbuckets, percentile)`
+### `ddsketch(value double precision, alpha double precision, nbuckets int) -> ddsketch`
 
-Computes a requested percentile from the data, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile(t.c, 0.05, 1024, 0.95) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `percentile` - value in [0, 1] specifying the percentile
-
-
-### `ddsketch_percentile(value, count, alpha, nbuckets, percentile)`
-
-Computes a requested percentile from the data, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile(t.c, t.a, 0.05, 1024, 0.95) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `percentile` - value in [0, 1] specifying the percentile
-
-
-### `ddsketch_percentile(value, alpha, nbuckets, percentile[])`
-
-Computes requested percentiles from the data, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile(t.c, 0.05, 1024, ARRAY[0.95, 0.99]) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `percentile[]` - array of values in [0, 1] specifying the percentiles
-
-
-### `ddsketch_percentile(value, count, alpha, nbuckets, percentile[])`
-
-Computes requested percentiles from the data, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile(t.c, t.a, 0.05, 1024, ARRAY[0.95, 0.99]) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `percentile[]` - array of values in [0, 1] specifying the percentiles
-
-
-### `ddsketch_percentile_of(value, alpha, nbuckets, hypothetical_value)`
-
-Computes relative rank of a hypothetical value, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile_of(t.c, 0.05, 1024, 139832.3) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `hypothetical_value` - hypothetical value
-
-
-### `ddsketch_percentile_of(value, count, alpha, nbuckets, hypothetical_value)`
-
-Computes relative rank of a hypothetical value, using a sketch with the
-specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile_of(t.c, t.a, 0.05, 1024, 139832.3) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `hypothetical_value` - hypothetical value
-
-
-### `ddsketch_percentile_of(value, alpha, nbuckets, hypothetical_value[])`
-
-Computes relative ranks of a hypothetical values, using a sketch with
-the specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile_of(t.c, 0.05, 1024, ARRAY[6343.43, 139832.3]) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `hypothetical_value` - hypothetical values
-
-
-### `ddsketch_percentile_of(value, count, alpha, nbuckets, hypothetical_value[])`
-
-Computes relative ranks of a hypothetical values, using a sketch with
-the specified accuracy.
-
-#### Synopsis
-
-```
-SELECT ddsketch_percentile_of(t.c, t.a, 0.05, 1024, ARRAY[6343.43, 139832.3]) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-- `hypothetical_value` - hypothetical values
-
-
-### `ddsketch(value, alpha, nbuckets)`
-
-Computes sketch with the specified accuracy.
+Computes a ddsketch with the specified accuracy.
 
 #### Synopsis
 
@@ -447,9 +242,9 @@ SELECT ddsketch(t.c, 0.05, 1024) FROM t
 - `nbuckets` - number of buckets in the sketch
 
 
-### `ddsketch(value, count, alpha, nbuckets)`
+### `ddsketch(value double precision, count bigint, alpha double precision, nbuckets int) -> ddsketch`
 
-Computes sketch with the specified accuracy. The values are added with
+Computes a ddsketch with the specified accuracy. The values are added with
 as many occurrences as determined by the count parameter.
 
 #### Synopsis
@@ -461,25 +256,33 @@ SELECT ddsketch(t.c, t.a, 0.05, 1024) FROM t
 #### Parameters
 
 - `value` - values to aggregate
-- `count` - number of occurrences for each value
+- `count` - number of occurrences of the value
 - `alpha` - accuracy of the sketch
 - `nbuckets` - number of buckets in the sketch
 
 
-### `ddsketch_count(ddsketch)`
+### `ddsketch(sketch ddsketch) -> ddsketch`
 
-Returns number of items represented by the sketch.
+Computes ddsketch by combining the input digests.
 
 #### Synopsis
 
 ```
-SELECT ddsketch_count(d) FROM (
-    SELECT ddsketch(t.c, 0.05, 1024) FROM t
-) foo
+WITH tmp AS (SELECT ddketch(t.v, 0.05, 1024)) AS d FROM t GROUP BY t.a)
+SELECT ddsketch(d) FROM tmp
 ```
 
+#### Parameters
 
-### `ddsketch_percentile(ddsketch, percentile)`
+- `value` - values to aggregate
+- `alpha` - accuracy of the sketch
+- `nbuckets` - number of buckets in the sketch
+- `percentile[]` - array of values in [0, 1] specifying the percentiles
+
+
+## Scalar Functions
+
+### `ddsketch_percentile(sketch ddsketch, percentile double precision) -> double precision`
 
 Computes requested percentile from the pre-computed ddsketch.
 
@@ -497,7 +300,7 @@ SELECT ddsketch_percentile(d, 0.99) FROM (
 - `percentile` - value in [0, 1] specifying the percentile
 
 
-### `ddsketch_percentile(sketch, percentile[])`
+### `ddsketch_percentile(sketch ddsketch, percentile double precision[]) -> double precision`
 
 Computes requested percentiles from the pre-computed ddsketch.
 
@@ -515,7 +318,7 @@ SELECT ddsketch_percentile(d, ARRAY[0.95, 0.99]) FROM (
 - `percentile` - values in [0, 1] specifying the percentiles
 
 
-### `ddsketch_percentile_of(sketch, hypothetical_value)`
+### `ddsketch_percentile_of(sketch ddsketch, hypothetical_value double precision) -> double precision`
 
 Computes relative rank of a hypothetical value, using a pre-computed sketch.
 
@@ -533,7 +336,7 @@ SELECT ddsketch_percentile_of(d, 349834.1) FROM (
 - `hypothetical_value` - hypothetical value
 
 
-### `ddsketch_percentile_of(sketch, hypothetical_value[])`
+### `ddsketch_percentile_of(sketch ddsketch, hypothetical_value  double precision[]) -> double precision`
 
 Computes relative ranks of hypothetical values, using a pre-computed sketch.
 
@@ -551,174 +354,22 @@ SELECT ddsketch_percentile_of(d, ARRAY[438.256, 349834.1]) FROM (
 - `hypothetical_value` - hypothetical values
 
 
-### `ddsketch_add(ddsketch, double precision)`
+### `ddsketch_count(sketch ddsketch) -> bigint`
 
-Performs incremental update of the sketch by adding a single value.
-
-#### Synopsis
-
-```
-UPDATE t SET d = ddsketch_add(d, random());
-```
-
-#### Parameters
-
-- `sketch` - ddsketch to update
-- `element` - value to add to the sketch
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-
-
-### `ddsketch_add(ddsketch, double precision[])`
-
-Performs incremental update of the sketch by adding values from an array.
+Returns number of items represented by the sketch.
 
 #### Synopsis
 
 ```
-UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
-```
-
-#### Parameters
-
-- `sketch` - ddsketch to update
-- `elements` - array of values to add to the sketch
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-
-
-### `ddsketch_union(ddsketch, ddsketch)`
-
-Performs incremental update of the sketch by merging-in another sketch.
-
-#### Synopsis
-
-```
-WITH x AS (SELECT ddsketch(random(), 0.05, 1024) AS d FROM generate_series(1,1000))
-UPDATE t SET d = ddsketch_union(t.d, x.d) FROM x;
-```
-
-#### Parameters
-
-- `ddsketch` - ddsketch to update
-- `ddsketch_add` - sketch to merge into `sketch`
-- `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
-
-
-### `ddsketch_sum(value, alpha, nbuckets, low, high)`
-
-Computes trimmed sum of values, discarding values at the low and high end.
-The `low` and `high` values specify which part of the sample should be
-included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
-and high values will be discarded.
-
-#### Synopsis
-
-```
-SELECT ddsketch_sum(t.v, 0.05, 1024, 0.1, 0.9) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the t-digest
-- `nbuckets` - number of buckets in the sketch
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
-
-
-### `ddsketch_sum(value, count, alpha, nbuckets, low, high)`
-
-Computes trimmed sum of values, discarding values at the low and high end.
-The `low` and `high` values specify which part of the sample should be
-included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
-and high values will be discarded.
-
-#### Synopsis
-
-```
-SELECT ddsketch_sum(t.v, t.c, 0.05, 1024, 0.1, 0.9) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the t-digest
-- `nbuckets` - number of buckets in the sketch
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
-
-
-### `ddsketch_sum(sketch, low, high)`
-
-Computes trimmed sum of values, discarding values at the low and high end.
-The `low` and `high` values specify which part of the sample should be
-included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
-and high values will be discarded.
-
-#### Synopsis
-
-```
-SELECT ddsketch_sum(d, 0.1, 0.9) FROM (
+SELECT ddsketch_count(d) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
 ```
 
-#### Parameters
 
-- `count` - number of occurrences of the value
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
+## Trimmed Aggregates
 
-
-### `ddsketch_avg(value, alpha, nbuckets, low, high)`
-
-Computes trimmed average of values, discarding values at the low and high end.
-The `low` and `high` values specify which part of the sample should be
-included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
-and high values will be discarded.
-
-#### Synopsis
-
-```
-SELECT ddsketch_avg(t.v, 0.05, 1024, 0.1, 0.9) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `alpha` - accuracy of the t-digest
-- `nbuckets` - number of buckets in the sketch
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
-
-
-### `ddsketch_avg(value, count, alpha, nbuckets, low, high)`
-
-Computes trimmed average of values, discarding values at the low and high end.
-The `low` and `high` values specify which part of the sample should be
-included in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low
-and high values will be discarded.
-
-#### Synopsis
-
-```
-SELECT ddsketch_avg(t.v, 0.05, 1024, 0.1, 0.9) FROM t
-```
-
-#### Parameters
-
-- `value` - values to aggregate
-- `count` - number of occurrences of the value
-- `alpha` - accuracy of the t-digest
-- `nbuckets` - number of buckets in the sketch
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
-
-
-### `ddsketch_avg(sketch, low, high)`
+### `ddsketch_avg(sketch ddsketch, low double precision, high double precision) -> double precision`
 
 Computes trimmed average of values, discarding values at the low and high end.
 The `low` and `high` values specify which part of the sample should be
@@ -740,7 +391,7 @@ SELECT ddsketch_avg(d, 0.1, 0.9) FROM (
 - `high` - high threshold percentile (values above are discarded)
 
 
-### `ddsketch_sketch_sum(sketch, low, high)`
+### `ddsketch_sum(sketch ddsketch, low double precision, high double precision) -> double precision`
 
 Calculates trimmed sum from a single sketch, without aggregation. The `low`
 and `high` values specify which part of the sample should be included in the
@@ -762,26 +413,61 @@ SELECT ddsketch_sketch_sum(
 - `high` - high threshold percentile (values above are discarded)
 
 
-### `ddsketch_sketch_avg(sketch, low, high)`
+## Incremental API
 
-Calculates trimmed average from a single sketch, without aggregation. The
-`low` and `high` values specify which part of the sample should be included
-in the result, so e.g. `low = 0.1` and `high = 0.9` means 10% low and high
-values will be discarded.
+### `ddsketch_add(sketch ddsketch, value double precision) -> ddsketch`
+
+Performs incremental update of the sketch by adding a single value.
 
 #### Synopsis
 
 ```
-SELECT ddsketch_sketch_avg(
-    (SELECT ddsketch(t.c, 0.05, 1024) FROM t),
-    0.1, 0.9)
+UPDATE t SET d = ddsketch_add(d, random());
 ```
 
 #### Parameters
 
-- `sketch` - ddsketch to calculate trimmed average for
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
+- `sketch` - ddsketch to update
+- `element` - value to add to the sketch
+- `alpha` - accuracy of the sketch
+- `nbuckets` - number of buckets in the sketch
+
+
+### `ddsketch_add(sketch ddsketch, value double precision[]) -> ddsketch`
+
+Performs incremental update of the sketch by adding values from an array.
+
+#### Synopsis
+
+```
+UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
+```
+
+#### Parameters
+
+- `sketch` - ddsketch to update
+- `elements` - array of values to add to the sketch
+- `alpha` - accuracy of the sketch
+- `nbuckets` - number of buckets in the sketch
+
+
+### `ddsketch_union(sketch1 ddsketch, sketch2 ddsketch) -> ddsketch`
+
+Performs incremental update of the sketch by merging-in another sketch.
+
+#### Synopsis
+
+```
+WITH x AS (SELECT ddsketch(random(), 0.05, 1024) AS d FROM generate_series(1,1000))
+UPDATE t SET d = ddsketch_union(t.d, x.d) FROM x;
+```
+
+#### Parameters
+
+- `ddsketch` - ddsketch to update
+- `ddsketch_add` - sketch to merge into `sketch`
+- `alpha` - accuracy of the sketch
+- `nbuckets` - number of buckets in the sketch
 
 
 Notes
