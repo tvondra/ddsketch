@@ -282,6 +282,24 @@ static double ddsketch_pow_gamma(double multiplier, double value);
 static int    ddsketch_map_index(int offset, double multiplier, double value);
 static double ddsketch_map_value(int offset, double multiplier, double gamma, double index);
 
+#if PG_VERSION_NUM < 150000
+/*
+ * Thin wrappers that convert strings to exactly 64-bit integers, matching our
+ * definition of int64.  (For the naming, compare that POSIX has
+ * strtoimax()/strtoumax() which return intmax_t/uintmax_t.)
+ *
+ * XXX Backward compatibility
+ */
+#ifdef HAVE_LONG_INT_64
+/* int64 is "long int", so strtol() returns exactly the right width */
+#define strtoi64(str, endptr, base) ((int64) strtol(str, endptr, base))
+#else
+/* int64 is "long long int" (C99 guarantees it is at least 64 bits) */
+#define strtoi64(str, endptr, base) ((int64) strtoll(str, endptr, base))
+#endif
+
+#endif	/* PG_VERSION_NUM < 150000 */
+
 /* boundaries for relative error */
 #define	MIN_SKETCH_ALPHA	0.0001
 #define MAX_SKETCH_ALPHA	0.1
