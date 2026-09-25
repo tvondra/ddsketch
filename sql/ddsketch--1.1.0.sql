@@ -105,12 +105,12 @@ CREATE OR REPLACE FUNCTION ddsketch_union(p_sketch1 ddsketch, p_sketch2 ddsketch
 CREATE OR REPLACE FUNCTION ddsketch_info(p_sketch ddsketch, out bytes bigint, out flags bigint, out alpha double precision, out count bigint, out zero_count bigint, out max_buckets int, out negative_buckets int, out positive_buckets int, out min_indexable double precision, out max_indexable double precision)
     RETURNS record
     AS 'ddsketch', 'ddsketch_sketch_info'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_buckets(p_sketch ddsketch, out index int, out bucket_index int, out bucket_lower double precision, out bucket_upper double precision, out bucket_length double precision, out bucket_count bigint)
     RETURNS SETOF record
     AS 'ddsketch', 'ddsketch_sketch_buckets'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_info(p_alpha double precision, out min_indexable double precision, out max_indexable double precision)
     RETURNS record
