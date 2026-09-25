@@ -46,13 +46,13 @@ for a given `ddsketch` sketch:
 
 That is, instead of running
 
-```
+```sql
 SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY a) FROM t
 ```
 
 you might now run
 
-```
+```sql
 SELECT ddsketch_percentile(ddsketch(a, 0.05, 1024), 0.95) FROM t
 ```
 
@@ -90,7 +90,7 @@ functions (with `ddsketch` as the first argument).
 
 So for example you may do this:
 
-```
+```sql
 -- table with some random source data
 CREATE TABLE t (a int, b int, c double precision);
 
@@ -170,7 +170,7 @@ An existing ddsketch may be updated incrementally, either by adding a single
 value, or by merging-in a whole ddsketch. For example, it's possible to add
 1000 random values to the ddsketch like this:
 
-```
+```sql
 DO LANGUAGE plpgsql $$
 DECLARE
   r record;
@@ -186,7 +186,7 @@ deserialized and serialized over and over, for each value we're adding.
 That overhead may be reduced by pre-aggregating data, either into an array
 or a ddsketch.
 
-```
+```sql
 DO LANGUAGE plpgsql $$
 DECLARE
   a double precision[];
@@ -199,7 +199,7 @@ END $$;
 Alternatively, it's possible to use pre-aggregated sketch values instead
 of the arrays:
 
-```
+```sql
 DO LANGUAGE plpgsql $$
 DECLARE
   r record;
@@ -231,7 +231,7 @@ Computes a ddsketch with the specified accuracy.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ```
 
@@ -249,7 +249,7 @@ as many occurrences as determined by the count parameter.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch(t.c, t.a, 0.05, 1024) FROM t
 ```
 
@@ -267,7 +267,7 @@ Computes ddsketch by combining the input digests.
 
 #### Synopsis
 
-```
+```sql
 WITH tmp AS (SELECT ddketch(t.v, 0.05, 1024)) AS d FROM t GROUP BY t.a)
 SELECT ddsketch(d) FROM tmp
 ```
@@ -288,7 +288,7 @@ Computes requested percentile from the pre-computed ddsketch.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_percentile(d, 0.99) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -306,7 +306,7 @@ Computes requested percentiles from the pre-computed ddsketch.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_percentile(d, ARRAY[0.95, 0.99]) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -324,7 +324,7 @@ Computes relative rank of a hypothetical value, using a pre-computed sketch.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_percentile_of(d, 349834.1) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -342,7 +342,7 @@ Computes relative ranks of hypothetical values, using a pre-computed sketch.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_percentile_of(d, ARRAY[438.256, 349834.1]) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -360,7 +360,7 @@ Returns number of items represented by the sketch.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_count(d) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -378,7 +378,7 @@ and high values will be discarded.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_avg(d, 0.1, 0.9) FROM (
     SELECT ddsketch(t.c, 0.05, 1024) FROM t
 ) foo
@@ -400,7 +400,7 @@ will be discarded.
 
 #### Synopsis
 
-```
+```sql
 SELECT ddsketch_sketch_sum(
     (SELECT ddsketch(t.c, 0.05, 1024) FROM t),
     0.1, 0.9)
@@ -421,7 +421,7 @@ Performs incremental update of the sketch by adding a single value.
 
 #### Synopsis
 
-```
+```sql
 UPDATE t SET d = ddsketch_add(d, random());
 ```
 
@@ -439,7 +439,7 @@ Performs incremental update of the sketch by adding values from an array.
 
 #### Synopsis
 
-```
+```sql
 UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
 ```
 
@@ -457,7 +457,7 @@ Performs incremental update of the sketch by merging-in another sketch.
 
 #### Synopsis
 
-```
+```sql
 WITH x AS (SELECT ddsketch(random(), 0.05, 1024) AS d FROM generate_series(1,1000))
 UPDATE t SET d = ddsketch_union(t.d, x.d) FROM x;
 ```
