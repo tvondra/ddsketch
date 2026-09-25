@@ -1,2 +1,2 @@
 test: _init
-test: combine copy ddsketch union
+test: combine copy ddsketch union arrays
