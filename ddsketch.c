@@ -23,7 +23,9 @@
 
 #include "postgres.h"
 #include "access/htup_details.h"
+#include "common/int.h"
 #include "libpq/pqformat.h"
+#include "miscadmin.h"
 #include "utils/array.h"
 #include "utils/lsyscache.h"
 #include "catalog/pg_type.h"
@@ -308,6 +310,24 @@ static double ddsketch_log_gamma(double multiplier, double value);
 static double ddsketch_pow_gamma(double multiplier, double value);
 static int    ddsketch_map_index(int offset, double multiplier, double value);
 static double ddsketch_map_value(int offset, double multiplier, double gamma, double index);
+
+#if PG_VERSION_NUM < 150000
+/*
+ * Thin wrappers that convert strings to exactly 64-bit integers, matching our
+ * definition of int64.  (For the naming, compare that POSIX has
+ * strtoimax()/strtoumax() which return intmax_t/uintmax_t.)
+ *
+ * XXX Backward compatibility
+ */
+#ifdef HAVE_LONG_INT_64
+/* int64 is "long int", so strtol() returns exactly the right width */
+#define strtoi64(str, endptr, base) ((int64) strtol(str, endptr, base))
+#else
+/* int64 is "long long int" (C99 guarantees it is at least 64 bits) */
+#define strtoi64(str, endptr, base) ((int64) strtoll(str, endptr, base))
+#endif
+
+#endif	/* PG_VERSION_NUM < 150000 */
 
 /* boundaries for relative error */
 #define	MIN_SKETCH_ALPHA	0.0001
@@ -798,7 +818,7 @@ ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 	if (!isfinite(value))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-				 errmsg("all values added to t-digest must be finite")));
+				 errmsg("all values added to ddsketch must be finite")));
 
 	state->count += count;
 
@@ -1964,11 +1984,132 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	PG_RETURN_POINTER(sketch);
 }
 
+/*
+ * Parsing of the textual ddsketch representation.
+ *
+ * We can't use sscanf, because it does not report overflows in any way - the
+ * value simply saturates to the maximum for the data type. That's a problem
+ * for the count, where the saturated value is a perfectly valid count, so we
+ * can't detect it after the fact. Use strtoll/strtod, which do set errno.
+ *
+ * All of these advance the pointer past the parsed part on success, and never
+ * return on failure.
+ */
+
+/*
+ * Match a literal string, after skipping (optional) leading space.
+ */
+static void
+parse_str(char **ptr, const char *value, bool space)
+{
+	char   *str = *ptr;
+	size_t	len = strlen(value);
+
+	/* if requested, skip the one initial space character */
+	if (space)
+	{
+		if (isspace((unsigned char) *str))
+			str++;
+		else
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("failed to parse ddsketch value, missing space")));
+	}
+
+	/* at this point there must be no whitespace */
+	if (isspace((unsigned char) *str))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("failed to parse ddsketch value, unexpected space")));
+
+	/* the prefix should match our string */
+	if (strncmp(str, value, len) != 0)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("failed to parse ddsketch value, expected \"%s\"",
+						value)));
+
+	*ptr = str + len;
+}
+
+/*
+ * Parse an int64 value, and make sure it's in range.
+ */
+static int64
+parse_int64(char **ptr, const char *field)
+{
+	char   *endptr;
+	int64	value;
+
+	errno = 0;
+	value = strtoi64(*ptr, &endptr, 10);
+
+	if (endptr == *ptr)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("failed to parse %s of a ddsketch", field)));
+
+	if (errno == ERANGE)
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("%s of a ddsketch is out of range for bigint", field)));
+
+	*ptr = endptr;
+
+	return value;
+}
+
+/*
+ * Parse an int32 value, and make sure it's in range.
+ *
+ * Parse it as int64 first, so that we can range check it before narrowing it
+ * down, instead of relying on an implementation-defined narrowing conversion.
+ */
+static int32
+parse_int32(char **ptr, const char *field)
+{
+	int64	value = parse_int64(ptr, field);
+
+	if (value < PG_INT32_MIN || value > PG_INT32_MAX)
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("%s of a ddsketch is out of range for integer", field)));
+
+	return (int32) value;
+}
+
+/*
+ * Parse a double value, and make sure it's in range.
+ */
+static double
+parse_double(char **ptr, const char *field)
+{
+	char   *endptr;
+	double	value;
+
+	errno = 0;
+	value = strtod(*ptr, &endptr);
+
+	if (endptr == *ptr)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("failed to parse %s of a ddsketch", field)));
+
+	/* ERANGE may also signal a nonzero subnormal, which we can store. */
+	if ((errno == ERANGE) && ((value == 0.0) || !isfinite(value)))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("%s of a ddsketch is out of range for double precision",
+						field)));
+
+	*ptr = endptr;
+
+	return value;
+}
 
 Datum
 ddsketch_in(PG_FUNCTION_ARGS)
 {
-	int			r;
 	char	   *str = PG_GETARG_CSTRING(0);
 	ddsketch_t  *sketch = NULL;
 	size_t		slen;
@@ -1981,24 +2122,36 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	int			maxbuckets;
 	int			nbuckets;
 	int			nbuckets_negative;
-	int			header_length;
 	char	   *ptr;
 
 	slen = strlen(str);
+	ptr = str;
 
-	r = sscanf(str, "flags %d count " INT64_FORMAT " alpha %lf zero_count " INT64_FORMAT " maxbuckets %d buckets %d %d%n",
-			   &flags, &count, &alpha, &zero_count, &maxbuckets,
-			   &nbuckets, &nbuckets_negative, &header_length);
+	parse_str(&ptr, "flags", false);
+	flags = parse_int32(&ptr, "flags");
 
-	if (r != 7)
-		elog(ERROR, "failed to parse ddsketch value");
+	parse_str(&ptr, "count", true);
+	count = parse_int64(&ptr, "count");
+
+	parse_str(&ptr, "alpha", true);
+	alpha = parse_double(&ptr, "alpha");
+
+	parse_str(&ptr, "zero_count", true);
+	zero_count = parse_int64(&ptr, "zero_count");
+
+	parse_str(&ptr, "maxbuckets", true);
+	maxbuckets = parse_int32(&ptr, "maxbuckets");
+
+	parse_str(&ptr, "buckets", true);
+	nbuckets = parse_int32(&ptr, "buckets");
+	nbuckets_negative = parse_int32(&ptr, "negative buckets");
 
 	if (flags != SKETCH_DEFAULT_FLAGS)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid sketch flags %d", flags)));
 
-	if ((alpha < MIN_SKETCH_ALPHA) || (alpha > MAX_SKETCH_ALPHA))
+	if (!((alpha >= MIN_SKETCH_ALPHA) && (alpha <= MAX_SKETCH_ALPHA)))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("alpha for ddsketch (%f) must be in [%f, %f]",
@@ -2052,29 +2205,23 @@ ddsketch_in(PG_FUNCTION_ARGS)
 	sketch = ddsketch_allocate(flags, count, alpha, zero_count,
 							   maxbuckets, nbuckets, nbuckets_negative);
 
-	ptr = str + header_length;
-
 	count = zero_count;
 
 	nbuckets = 0;
-	while (true)
+	for (int i = 0; i < sketch->nbuckets; i++)
 	{
-		int		nbytes = -1;
 		int		index;
 		int64	bucket_count;
 
-		if (sscanf(ptr, " (%d, " INT64_FORMAT ")%n", &index, &bucket_count, &nbytes) != 2)
-			break;
+		CHECK_FOR_INTERRUPTS();
 
-		/*
-		 * The %n might have not been assigned, in which case it kept the -1
-		 * value. Treat it as malformed input value.
-		 */
-		if (nbytes < 0)
-			ereport(ERROR,
-					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-					 errmsg("failed to parse bucket")));
+		parse_str(&ptr, "(", true);
+		index = parse_int32(&ptr, "index");
+		parse_str(&ptr, ", ", false);
+		bucket_count = parse_int64(&ptr, "bucket count");
+		parse_str(&ptr, ")", false);
 
+		/* we've parsed a bucket, but we have too many already */
 		if (nbuckets >= sketch->nbuckets)
 			elog(ERROR, "too many buckets parsed");
 
@@ -2107,22 +2254,21 @@ ddsketch_in(PG_FUNCTION_ARGS)
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 					 errmsg("count value for all indexes in a ddsketch must be positive")));
 
-		sketch->buckets[nbuckets].index = index;
-		sketch->buckets[nbuckets].count = bucket_count;
+		sketch->buckets[i].index = index;
+		sketch->buckets[i].count = bucket_count;
 		nbuckets++;
 
-		count += bucket_count;
-
 		/*
-		 * Skip to the end of the centroid (the character after the closing
-		 * parenthesis). If this is the end of the string, stop parsing, even
-		 * if we failed to parse the right number of centroids).
+		 * track the total count so that we can check later
+		 *
+		 * Make sure the count does not overflow at any point. It could
+		 * overflow and then wrap around to the expected total, but it would
+		 * still cause an issue.
 		 */
-		ptr += nbytes;
-
-		/* end of string */
-		if (*ptr == '\0')
-			break;
+		if (pg_add_s64_overflow(count, bucket_count, &count))
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("ddsketch count overflow")));
 
 		/* must not scan past the end of the input string */
 		Assert(ptr <= str + slen);
@@ -2215,7 +2361,7 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("invalid sketch flags %d", flags)));
 
-	if ((alpha < MIN_SKETCH_ALPHA) || (alpha > MAX_SKETCH_ALPHA) || isnan(alpha))
+	if (!((alpha >= MIN_SKETCH_ALPHA) && (alpha <= MAX_SKETCH_ALPHA)))
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("alpha for ddsketch (%f) must be in [%f, %f]",
@@ -2272,6 +2418,8 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 	total_count = zero_count;
 	for (i = 0; i < sketch->nbuckets; i++)
 	{
+		CHECK_FOR_INTERRUPTS();
+
 		if (i >= sketch->nbuckets)
 			ereport(ERROR,
 					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
@@ -2280,7 +2428,18 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 		sketch->buckets[i].index = pq_getmsgint(buf, sizeof(int32));
 		sketch->buckets[i].count = pq_getmsgint64(buf);
 
-		total_count += sketch->buckets[i].count;
+		/*
+		 * track the total count so that we can check later
+		 *
+		 * Make sure the count does not overflow at any point. It could
+		 * overflow and then wrap around to the expected total, but it would
+		 * still cause an issue.
+		 */
+		if (pg_add_s64_overflow(total_count, sketch->buckets[i].count,
+								&total_count))
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("ddsketch count overflow")));
 
 		if (sketch->buckets[i].count <= 0)
 			ereport(ERROR,
