@@ -19,6 +19,19 @@ ERROR:  invalid number of buckets 32769
 -- too many buckets needed
 SELECT ddsketch_percentile(ddsketch(i / 1.0, 0.01, 32), 0.5) FROM generate_series(1,10000) s(i);
 ERROR:  bucket overflow (used 32, allocated 32, max 32)
+-- invalid parameters
+SELECT * FROM ddsketch_buckets(0.0::float8, 1.0, 2.0);
+ERROR:  invalid alpha value 0.000000
+SELECT * FROM ddsketch_buckets('NaN'::float8, 1.0, 2.0);
+ERROR:  invalid alpha value NaN
+SELECT * FROM ddsketch_buckets(1e-300::float8, 1.0, 2.0);
+ERROR:  invalid alpha value 0.000000
+SELECT * FROM ddsketch_info(0.0::float8);
+ERROR:  invalid alpha value 0.000000
+SELECT * FROM ddsketch_info(2.0::float8);
+ERROR:  invalid alpha value 2.000000
+SELECT * FROM ddsketch_info(-1.0::float8);
+ERROR:  invalid alpha value -1.000000
 -- test various cases of invalid ddsketch text representations
 -- invalid flags
 select 'flags 1 count 1000 alpha 0.050000 zero_count 0 maxbuckets 128 buckets 51 0 (-75, 1) (-72, 1) (-68, 1) (-58, 1) (-51, 1) (-48, 1) (-46, 1) (-44, 1) (-43, 1) (-42, 1) (-40, 2) (-39, 1) (-38, 3) (-37, 4) (-36, 1) (-35, 2) (-34, 4) (-33, 2) (-32, 6) (-31, 9) (-30, 5) (-29, 4) (-28, 6) (-27, 9) (-26, 12) (-25, 8) (-24, 4) (-23, 8) (-22, 14) (-21, 8) (-20, 10) (-19, 13) (-18, 23) (-17, 13) (-16, 25) (-15, 20) (-14, 22) (-13, 20) (-12, 28) (-11, 28) (-10, 40) (-9, 35) (-8, 45) (-7, 48) (-6, 54) (-5, 61) (-4, 68) (-3, 79) (-2, 75) (-1, 77) (0, 94)'::ddsketch;
