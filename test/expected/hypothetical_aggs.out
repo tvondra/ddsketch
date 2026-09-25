@@ -1,0 +1,376 @@
+-- hypothetical-set aggregates
+--
+-- there's no guarantee for relative-errors of hypothetical-aggregates,
+-- but for uniform distribution it's fairly close to the relative error
+-- the ddsketch was defined with
+WITH
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,2500) s(i)), 
+  sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data)
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    foo.v,
+    (SELECT ddsketch_percentile_of(sketch.s, foo.v) FROM sketch) a,
+    (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
+  FROM
+    (SELECT i AS v FROM generate_series(0,1000,25) s(i)) foo
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+
+WITH
+  data AS (SELECT mod(i,10) as x, i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY data.x)
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    foo.v,
+    (SELECT ddsketch_percentile_of(ddsketch(sketches.s), foo.v) FROM sketches) a,
+    (SELECT percent_rank(foo.v) WITHIN GROUP (ORDER BY v) FROM data) b
+  FROM
+    (SELECT i AS v FROM generate_series(0,1000,25) s(i)) foo
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+
+WITH
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  sketch AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data),
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(sketch.s, vals.v) AS v FROM sketch, vals),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+
+WITH
+  data AS (SELECT mod(i,10) AS x, i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  sketches AS (SELECT ddsketch(data.v, 0.05, 1024) AS s FROM data GROUP BY x),
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(ddsketch(sketches.s), vals.v) AS v FROM sketches, vals GROUP BY vals.v),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+
+-- now the same thing, but pass the values as a single array
+WITH
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(ddsketch(data.v, 0.05, 1024), vals.v) AS v FROM data, vals GROUP BY vals.v),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+
+WITH
+  data AS (SELECT i / 10.0 AS v FROM generate_series(1,10000) s(i)), 
+  vals AS (SELECT array_agg(i) AS v FROM generate_series(0,1000,25) s(i)),
+  sketch_values AS (SELECT ddsketch_percentile_of(ddsketch(data.v, 0.05, 1024), vals.v) AS v FROM data, vals GROUP BY vals.v),
+  percent_ranks AS (SELECT array_agg((SELECT percent_rank(i) WITHIN GROUP (ORDER BY v) FROM data)) AS v FROM generate_series(0,1000,25) s(i))
+SELECT
+  v,
+  check_relative_error(a, b, 0.06) AS check_error,
+  print_relative_error(a, b, 0.06) AS error_info
+FROM (
+  SELECT
+    unnest(vals.v) as v,
+    unnest(sketch_values.v) as a,
+    unnest(percent_ranks.v) as b
+  FROM
+    vals, sketch_values, percent_ranks
+) bar;
+  v   | check_error | error_info 
+------+-------------+------------
+    0 | t           | 
+   25 | t           | 
+   50 | t           | 
+   75 | t           | 
+  100 | t           | 
+  125 | t           | 
+  150 | t           | 
+  175 | t           | 
+  200 | t           | 
+  225 | t           | 
+  250 | t           | 
+  275 | t           | 
+  300 | t           | 
+  325 | t           | 
+  350 | t           | 
+  375 | t           | 
+  400 | t           | 
+  425 | t           | 
+  450 | t           | 
+  475 | t           | 
+  500 | t           | 
+  525 | t           | 
+  550 | t           | 
+  575 | t           | 
+  600 | t           | 
+  625 | t           | 
+  650 | t           | 
+  675 | t           | 
+  700 | t           | 
+  725 | t           | 
+  750 | t           | 
+  775 | t           | 
+  800 | t           | 
+  825 | t           | 
+  850 | t           | 
+  875 | t           | 
+  900 | t           | 
+  925 | t           | 
+  950 | t           | 
+  975 | t           | 
+ 1000 | t           | 
+(41 rows)
+

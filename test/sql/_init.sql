@@ -1,3 +1,136 @@
-\set ECHO none
-
 CREATE EXTENSION ddsketch;
+CREATE EXTENSION lower_quantile;
+
+-- SRF function implementing a simple deterministict PRNG
+
+CREATE OR REPLACE FUNCTION prng(nrows int, seed int = 23982, p1 bigint = 16807, p2 bigint = 0, n bigint = 2147483647) RETURNS SETOF double precision AS $$
+DECLARE
+    val INT := seed;
+BEGIN
+    FOR i IN 1..nrows LOOP
+        val := (val * p1 + p2) % n;
+
+        RETURN NEXT (val::double precision / n);
+    END LOOP;
+
+    RETURN;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION random_normal(nrows int, mean double precision = 0.5, stddev double precision = 0.1, minval double precision = 0.0, maxval double precision = 1.0, seed int = 23982, p1 bigint = 16807, p2 bigint = 0, n bigint = 2147483647) RETURNS SETOF double precision AS $$
+DECLARE
+    v BIGINT := seed;
+    x DOUBLE PRECISION;
+    y DOUBLE PRECISION;
+    s DOUBLE PRECISION;
+    r INT := nrows;
+BEGIN
+
+    WHILE true LOOP
+
+        -- random x
+        v := (v * p1 + p2) % n;
+        x := 2 * v / n::double precision - 1.0;
+
+        -- random y
+        v := (v * p1 + p2) % n;
+        y := 2 * v / n::double precision - 1.0;
+
+        s := x^2 + y^2;
+
+        IF s != 0.0 AND s < 1.0 THEN
+
+            s = sqrt(-2 * ln(s) / s);
+
+            x := mean + stddev * s * x;
+
+            IF x >= minval AND x <= maxval THEN
+                RETURN NEXT x;
+                r := r - 1;
+            END IF;
+
+            EXIT WHEN r = 0;
+
+            y := mean + stddev * s * y;
+
+            IF y >= minval AND y <= maxval THEN
+                RETURN NEXT y;
+                r := r - 1;
+            END IF;
+
+            EXIT WHEN r = 0;
+
+        END IF;
+
+    END LOOP;
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION relative_error(estimated_value double precision, actual_value double precision) RETURNS double precision AS $$
+DECLARE
+    divisor double precision;
+BEGIN
+    -- if both values are 0, then the relative error is 0
+    if (abs(actual_value) = 0) and (abs(estimated_value) = 0) then
+        return 0.0;
+    end if;
+
+    -- use actual value az divisor, but if it's 0 then use the estimate
+    -- this allows us to calculate the error without division by zero
+    -- (we already know both can't be zero)
+    divisor := abs(actual_value);
+    if divisor = 0 then
+      divisor := abs(estimated_value);
+    end if;
+
+    return abs(estimated_value - actual_value) / divisor;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION check_relative_error(estimated_value double precision, actual_value double precision, allowed_error double precision) RETURNS bool AS $$
+DECLARE
+    err double precision;
+BEGIN
+
+    IF ((estimated_value < 0) AND (actual_value > 0)) OR ((estimated_value > 0) AND (actual_value < 0)) THEN
+        RETURN NULL;
+    END IF;
+
+    -- add 1% fuzz factor, to account for rounding errors etc.
+    err := relative_error(estimated_value, actual_value);
+
+    RETURN (err < allowed_error * 1.01);
+
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION print_relative_error(estimated_value double precision, actual_value double precision, allowed_error double precision) RETURNS text AS $$
+DECLARE
+    err double precision;
+BEGIN
+
+    IF ((estimated_value < 0) AND (actual_value > 0)) OR ((estimated_value > 0) AND (actual_value < 0)) THEN
+        RETURN format('estimate = %s, actual = %s', estimated_value, actual_value);
+    END IF;
+
+    err := relative_error(estimated_value, actual_value);
+
+    -- add 1% fuzz factor, to account for rounding errors etc.
+    IF err < (allowed_error * 1.01) THEN
+        RETURN NULL;
+    END IF;
+
+    RETURN format('estimate = %s, actual = %s, error = %s', estimated_value, actual_value, err);
+
+END;
+$$ LANGUAGE plpgsql;
+
+-- functions to round double precision values (and arrays of)
+CREATE OR REPLACE FUNCTION trunc_value(v double precision, s integer = 12) RETURNS text AS $$
+SELECT substring(v::text, 1, s);
+$$ LANGUAGE sql;
+
+CREATE OR REPLACE FUNCTION trunc_value(v double precision[], s integer = 12) RETURNS text[] AS $$
+SELECT array_agg(trunc_value(v, s)) FROM unnest(v) v;
+$$ LANGUAGE sql;

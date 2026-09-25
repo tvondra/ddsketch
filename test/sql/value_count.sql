@@ -1,0 +1,127 @@
+-- <value,count> API
+
+select trunc_value(ddsketch_percentile(ddsketch(value, count, 0.05, 1024), ARRAY[0.9, 0.95, 0.99])) as percentiles
+from (values
+  (47325940488,1),
+  (15457695432,2),
+  (6889790700,3),
+  (4188763788,4),
+  (2882932224,5),
+  (2114815860,6),
+  (1615194324,7),
+  (2342114568,9),
+  (1626471924,11),
+  (1660755408,14),
+  (1143728292,17),
+  (1082582424,21),
+  (911488284,26),
+  (728863908,32),
+  (654898692,40),
+  (530198076,50),
+  (417883440,62),
+  (341452344,77),
+  (274579584,95),
+  (231921120,118),
+  (184091820,146),
+  (152469828,181),
+  (125634972,224),
+  (107059704,278),
+  (88746120,345),
+  (73135668,428),
+  (61035756,531),
+  (50683320,658),
+  (42331824,816),
+  (35234400,1012),
+  (29341356,1255),
+  (24290928,1556),
+  (20284668,1929),
+  (17215908,2391),
+  (14737488,2964),
+  (12692772,3674),
+  (11220732,4555),
+  (9787584,5647),
+  (8148420,7000),
+  (6918612,8678),
+  (6015000,10758),
+  (5480316,13336),
+  (5443356,16532),
+  (4535616,20494),
+  (3962316,25406),
+  (3914484,31495),
+  (3828108,39043),
+  (3583536,48400),
+  (4104120,60000),
+  (166024740,2147483647)) foo (count, value);
+
+-- test incremental API (adding values one by one)
+CREATE TABLE t (d ddsketch);
+INSERT INTO t VALUES (NULL);
+
+-- check this produces the same result building the ddsketch at once
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT i FROM generate_series(1,1000) s(i) ORDER BY md5(i::text)) LOOP
+        UPDATE t SET d = ddsketch_add(d, r.i, 0.05, 1024);
+    END LOOP;
+END$$;
+
+-- compare the results
+WITH x AS (SELECT i FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.i, 0.05, 1024)::text FROM x) AS match;
+
+
+-- now do the same thing, but add values with a count
+TRUNCATE t;
+INSERT INTO t VALUES (NULL);
+
+-- check this produces the same result building the ddsketch at once
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT i AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text)) LOOP
+        UPDATE t SET d = ddsketch_add(d, r.v, r.c, 0.05, 1024);
+    END LOOP;
+END$$;
+
+-- compare the results
+WITH x AS (SELECT i::double precision AS v, (1 + pow(mod(i,13), 2)::int) AS c FROM generate_series(1,1000) s(i) ORDER BY md5(i::text))
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.v, x.c, 0.05, 1024)::text FROM x) AS match;
+
+
+-- now try the same thing with bulk incremental update (using arrays)
+TRUNCATE t;
+INSERT INTO t VALUES (NULL);
+
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT a, array_agg(i::double precision) AS v FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a) LOOP
+        UPDATE t SET d = ddsketch_add(d, r.v, 0.05, 1024);
+    END LOOP;
+END$$;
+
+-- compare the results
+WITH x AS (SELECT mod(i,5) AS a, i::double precision AS d FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), i)
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d, 0.05, 1024)::text FROM x);
+
+
+-- now try the same thing with bulk incremental update (using ddsketches)
+TRUNCATE t;
+INSERT INTO t VALUES (NULL);
+
+DO LANGUAGE plpgsql $$
+DECLARE
+  r RECORD;
+BEGIN
+    FOR r IN (SELECT a, ddsketch(i, 0.05, 1024) AS d FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a) LOOP
+        UPDATE t SET d = ddsketch_union(d, r.d);
+    END LOOP;
+END$$;
+
+-- compare the results
+WITH x AS (SELECT a, ddsketch(i, 0.05, 1024) AS d FROM (SELECT mod(i,5) AS a, i FROM generate_series(1,1000) s(i) ORDER BY mod(i,5), md5(i::text)) foo GROUP BY a ORDER BY a)
+SELECT (SELECT ddsketch(d)::text FROM t) = (SELECT ddsketch(x.d)::text FROM x);
