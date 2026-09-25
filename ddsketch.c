@@ -1616,7 +1616,7 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
 				 errmsg("ddsketch count overflow")));
 
-	dst->zero_count += dst->zero_count;
+	dst->zero_count += src->zero_count;
 
 	ddsketch_merge_buckets(dst, false,
 						   STATE_BUCKETS_NEGATIVE(src),
