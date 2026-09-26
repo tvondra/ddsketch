@@ -1074,10 +1074,17 @@ ddsketch_add_double(PG_FUNCTION_ARGS)
 	/* if there's no ddsketch aggstate allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
-		double	alpha = PG_GETARG_FLOAT8(2);
-		int32	maxbuckets = PG_GETARG_INT32(3);
-
+		double			alpha;
+		int32			maxbuckets;
 		MemoryContext	oldcontext;
+
+		if (PG_ARGISNULL(2) || PG_ARGISNULL(3))
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("alpha and number of buckets must not be NULL")));
+
+		alpha = PG_GETARG_FLOAT8(2);
+		maxbuckets = PG_GETARG_INT32(3);
 
 		check_sketch_parameters(alpha, maxbuckets);
 
@@ -1127,10 +1134,17 @@ ddsketch_add_double_count(PG_FUNCTION_ARGS)
 	/* if there's no ddsketch aggstate allocated, create it now */
 	if (PG_ARGISNULL(0))
 	{
-		double	alpha = PG_GETARG_FLOAT8(3);
-		int32	maxbuckets = PG_GETARG_INT32(4);
-
+		double			alpha;
+		int32			maxbuckets;
 		MemoryContext	oldcontext;
+
+		if (PG_ARGISNULL(3) || PG_ARGISNULL(4))
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					 errmsg("alpha and number of buckets must not be NULL")));
+
+		alpha = PG_GETARG_FLOAT8(3);
+		maxbuckets = PG_GETARG_INT32(4);
 
 		check_sketch_parameters(alpha, maxbuckets);
 
