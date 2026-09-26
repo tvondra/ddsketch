@@ -1544,6 +1544,8 @@ ddsketch_deserial(PG_FUNCTION_ARGS)
 
 	Assert(ptr == endptr);
 
+	AssertCheckDDSketchAggState(state);
+
 	PG_RETURN_POINTER(state);
 }
 
