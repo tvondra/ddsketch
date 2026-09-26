@@ -799,8 +799,6 @@ ddsketch_store_add(ddsketch_aggstate_t *state, bool positive, int index, int64 c
  * Add a double value to the sketch aggstate. Check if the value belongs
  * to the indexable range or zero bucket. If it can be indexed, add it to
  * the negative or positive part.
- *
- * XXX What about values exceeding the maximum indexable values?
  */
 static void
 ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
@@ -814,6 +812,13 @@ ddsketch_add(ddsketch_aggstate_t *state, double value, int64 count)
 		ereport(ERROR,
 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
 				 errmsg("all values added to ddsketch must be finite")));
+
+	/* must not exceed indexable range */
+	if (fabs(value) > state->max_indexable_value)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("value is outside ddsketch indexable range (%e > %e)",
+						fabs(value), state->max_indexable_value)));
 
 	/* checking the total also bounds every individual bucket count */
 	if (pg_add_s64_overflow(state->count, count, &state->count))
