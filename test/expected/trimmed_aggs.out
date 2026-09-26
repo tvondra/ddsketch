@@ -217,3 +217,27 @@ SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.5, 0.5)   BETWEEN 4750000 
  f
 (1 row)
 
+-- Negative buckets must contribute negative sums and averages.
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s FROM (VALUES (-2.0), (-1.0)) t(v)
+)
+SELECT ddsketch_sum(s) BETWEEN -3.15 AND -2.85 AS negative_sum,
+       ddsketch_avg(s) BETWEEN -1.575 AND -1.425 AS negative_avg
+FROM sketch;
+ negative_sum | negative_avg 
+--------------+--------------
+ t            | t
+(1 row)
+
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s
+    FROM (VALUES (-2.0), (-1.0), (1.0), (2.0)) t(v)
+)
+SELECT abs(ddsketch_sum(s)) < 1e-12 AS symmetric_sum,
+       ddsketch_sum(s, 0.0, 0.5) BETWEEN -3.15 AND -2.85 AS negative_half
+FROM sketch;
+ symmetric_sum | negative_half 
+---------------+---------------
+ t             | t
+(1 row)
+
