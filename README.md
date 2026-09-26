@@ -100,25 +100,30 @@ So for example you may do this:
 -- table with some random source data
 CREATE TABLE t (a int, b int, c double precision);
 
-INSERT INTO t SELECT 1000 * random(), 1000 * random(), 1000 * random()
+INSERT INTO t SELECT 50 * random(), 50 * random(), 1000 * random()
                 FROM generate_series(1,10000000);
 
 -- table with pre-aggregated sketches into table "p"
 CREATE TABLE p AS SELECT a, b, ddsketch(c, 0.05, 1024) AS d FROM t GROUP BY a, b;
 
 -- summarize the data from "p" (compute the 95-th percentile)
-SELECT a, ddsketch_percentile(d, 0.95) FROM p ORDER BY a;
+SELECT a, ddsketch_percentile(ddsketch(d), 0.95) FROM p GROUP BY a ORDER BY a;
 ```
+
+The outer `ddsketch(d)` merges all `(a, b)` sketches for each `a` before
+calculating its percentile. Calling `ddsketch_percentile(d, 0.95)` directly
+would return a separate result for every `(a, b)` group, not a percentile
+over all the original values with the same `a`.
 
 The pre-aggregated table is indeed much smaller:
 
 ~~~
 db=# \d+
-                                  List of relations
- Schema | Name | Type  | Owner | Persistence | Access method |  Size   | Description 
---------+------+-------+-------+-------------+---------------+---------+-------------
- public | p    | table | user  | permanent   | heap          | 2264 kB | 
- public | t    | table | user  | permanent   | heap          | 422 MB  | 
+                                    List of relations
+ Schema |   Name   | Type  | Owner | Persistence | Access method |  Size   | Description 
+--------+----------+-------+-------+-------------+---------------+---------+-------------
+ public | p        | table | user  | permanent   | heap          | 3112 kB | 
+ public | t        | table | user  | permanent   | heap          | 422 MB  | 
 (2 rows)
 ~~~
 
@@ -151,11 +156,16 @@ This shows how much more efficient the ddsketch estimate is compared to the
 exact query with `percentile_cont` (the difference would increase for larger
 data sets, due to increased overhead for spilling to disk).
 
-It also shows how effective the pre-aggregation can be. There are 121 rows
-in table `p` so with 2264kB disk space that's ~20kB per row, each representing
-about 80k values. With 8B per value, that's ~640kB, i.e. a compression ratio
-of 30:1. As the sketch size is not tied to the number of items, this will
+It also shows how effective the pre-aggregation can be. There are ~2600 rows
+in table `p` so with 3112kB disk space that's ~1.2kB per row, each representing
+about 4000 values. With 8B per value, that's ~32kB, i.e. a compression ratio
+of 25:1. As the sketch size is not tied to the number of items, this will
 only improve for larger data set.
+
+Pre-aggregation trades the cost of maintaining sketches for less data to
+scan at query time. Storage and runtime savings depend on the number of
+groups and occupied buckets, not just the number of input rows. Small
+groups may use more space as sketches than as raw values.
 
 
 ## Pre-aggregated data
