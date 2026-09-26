@@ -101,3 +101,18 @@ FROM (
   100.0 | t
 (9 rows)
 
+-- Special probes have defined results independent of bucket mapping.
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s
+    FROM (VALUES (-1.0), (0.0), (1.0)) t(v)
+)
+SELECT ddsketch_percentile_of(s, 'NaN'::float8) AS nan,
+       ddsketch_percentile_of(s, '-Infinity'::float8) AS below,
+       ddsketch_percentile_of(s, 'Infinity'::float8) AS above,
+       ddsketch_percentile_of(s, ARRAY['NaN', '-Infinity', 'Infinity']::float8[]) AS probes
+FROM sketch;
+ nan | below | above |  probes   
+-----+-------+-------+-----------
+ NaN |     0 |     1 | {NaN,0,1}
+(1 row)
+
