@@ -11,3 +11,10 @@ SELECT 'flags 0 count 1 alpha NaN zero_count 0 maxbuckets 16 buckets 1 0 (0, 1)'
 SELECT 'flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 16 buckets 3 0 (0, 9223372036854775807) (1, 9223372036854775807) (2, 3)'::ddsketch;
 
 SELECT ddsketch_count('flags 0 count 9223372036854775807 alpha 0.05 zero_count 0 maxbuckets 16 buckets 1 0 (0, 9223372036854775807)'::ddsketch);
+
+-- Valid int32 indexes can still be outside the alpha-dependent mapping range.
+SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 0 (2147483647, 1)'::ddsketch;
+SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 1 (-2147483648, 1)'::ddsketch;
+SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 0 (4000, 1)'::ddsketch;
+SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 1 (-4000, 1)'::ddsketch;
+SELECT ddsketch_count('flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 16 buckets 1 0 (4000, 1)'::ddsketch);
