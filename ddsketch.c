@@ -285,6 +285,7 @@ static ddsketch_aggstate_t *ddsketch_copy(ddsketch_aggstate_t *state);
 static double ddsketch_log_gamma(double multiplier, double value);
 static double ddsketch_pow_gamma(double multiplier, double value);
 static int    ddsketch_map_index(int offset, double multiplier, double value);
+static int    ddsketch_map_index2(double alpha, double value);
 static double ddsketch_map_value(int offset, double multiplier, double gamma, double index);
 
 #if PG_VERSION_NUM < 150000
@@ -1020,6 +1021,20 @@ check_trim_values(double low, double high)
 	if (low > high)
 		elog(ERROR, "invalid low/high percentile values %f/%f, should be low <= high",
 			 low, high);
+}
+
+static void
+check_bucket_index(double alpha, int index)
+{
+	double	gamma = (1 + alpha) / (1 - alpha);
+	int		min_index = ddsketch_map_index2(alpha, DBL_MIN * gamma);
+	int		max_index = ddsketch_map_index2(alpha, DBL_MAX / gamma);
+
+	if (index < min_index || index > max_index)
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("bucket index %d is outside ddsketch indexable range [%d, %d]",
+						index, min_index, max_index)));
 }
 
 /*
@@ -2237,6 +2252,8 @@ ddsketch_in(PG_FUNCTION_ARGS)
 		bucket_count = parse_int64(&ptr, "bucket count");
 		parse_str(&ptr, ")", false);
 
+		check_bucket_index(alpha, index);
+
 		/* we've parsed a bucket, but we have too many already */
 		if (nbuckets >= sketch->nbuckets)
 			elog(ERROR, "too many buckets parsed");
@@ -2244,8 +2261,6 @@ ddsketch_in(PG_FUNCTION_ARGS)
 		/*
 		 * Basic checks that the indexes are decreasing in the negative part
 		 * and increasing in the positive part.
-		 *
-		 * XXX Can we check the index value is valid (not too low/high)?
 		 */
 		if ((nbuckets != 0) && (nbuckets < nbuckets_negative))
 		{
@@ -2445,6 +2460,8 @@ ddsketch_recv(PG_FUNCTION_ARGS)
 
 		sketch->buckets[i].index = pq_getmsgint(buf, sizeof(int32));
 		sketch->buckets[i].count = pq_getmsgint64(buf);
+
+		check_bucket_index(alpha, sketch->buckets[i].index);
 
 		/*
 		 * track the total count so that we can check later
