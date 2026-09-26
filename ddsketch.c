@@ -2917,12 +2917,12 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 			elog(ERROR, "invalid range (%e, %e)", min_value, max_value);
 
 		if (fabs(min_value) > max_indexable_value)
-			elog(ERROR, "maximum value is outside indexable range (%e > %e)",
-				 max_value, max_indexable_value);
+			elog(ERROR, "minimum value is outside indexable range (%e > %e)",
+				 fabs(min_value), max_indexable_value);
 
 		if (fabs(max_value) > max_indexable_value)
-			elog(ERROR, "minimum value is outside indexable range (%e > %e)",
-				 max_value, max_indexable_value);
+			elog(ERROR, "maximum value is outside indexable range (%e > %e)",
+				 fabs(max_value), max_indexable_value);
 
 		/*
 		 * For the other end of the indexable range (values close to 0), we can
