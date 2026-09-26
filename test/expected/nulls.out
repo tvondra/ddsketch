@@ -1177,3 +1177,31 @@ SELECT ddsketch(NULL::ddsketch) FROM generate_series(1,10);
  
 (1 row)
 
+-- Both transition functions must reject missing initialization parameters.
+SELECT ddsketch(1.0, NULL::float8, 16);
+ERROR:  alpha and number of buckets must not be NULL
+SELECT ddsketch(1.0, 0.05, NULL::integer);
+ERROR:  alpha and number of buckets must not be NULL
+SELECT ddsketch(1.0, 2::bigint, NULL::float8, 16);
+ERROR:  alpha and number of buckets must not be NULL
+SELECT ddsketch(1.0, 2::bigint, 0.05, NULL::integer);
+ERROR:  alpha and number of buckets must not be NULL
+-- NULL observations do not initialize a state or inspect its parameters.
+SELECT ddsketch(NULL::float8, NULL::float8, NULL::integer) IS NULL AS unweighted,
+       ddsketch(NULL::float8, 2::bigint, NULL::float8, NULL::integer) IS NULL AS weighted;
+ unweighted | weighted 
+------------+----------
+ t          | t
+(1 row)
+
+-- Only the first non-NULL observation supplies the parameters.
+SELECT ddsketch_count(ddsketch(v, alpha, capacity ORDER BY ord)) AS unweighted,
+       ddsketch_count(ddsketch(v, 2::bigint, alpha, capacity ORDER BY ord)) AS weighted
+FROM (VALUES (1, NULL::float8, NULL::float8, NULL::integer),
+             (2, 1.0, 0.05, 16),
+             (3, 2.0, NULL, NULL)) t(ord, v, alpha, capacity);
+ unweighted | weighted 
+------------+----------
+          2 |        4
+(1 row)
+

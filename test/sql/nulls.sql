@@ -537,3 +537,20 @@ SELECT ddsketch_percentile_of(NULL::ddsketch, 0.9);
 SELECT ddsketch_percentile_of(NULL::ddsketch, ARRAY[0.1, 0.9]);
 
 SELECT ddsketch(NULL::ddsketch) FROM generate_series(1,10);
+
+-- Both transition functions must reject missing initialization parameters.
+SELECT ddsketch(1.0, NULL::float8, 16);
+SELECT ddsketch(1.0, 0.05, NULL::integer);
+SELECT ddsketch(1.0, 2::bigint, NULL::float8, 16);
+SELECT ddsketch(1.0, 2::bigint, 0.05, NULL::integer);
+
+-- NULL observations do not initialize a state or inspect its parameters.
+SELECT ddsketch(NULL::float8, NULL::float8, NULL::integer) IS NULL AS unweighted,
+       ddsketch(NULL::float8, 2::bigint, NULL::float8, NULL::integer) IS NULL AS weighted;
+
+-- Only the first non-NULL observation supplies the parameters.
+SELECT ddsketch_count(ddsketch(v, alpha, capacity ORDER BY ord)) AS unweighted,
+       ddsketch_count(ddsketch(v, 2::bigint, alpha, capacity ORDER BY ord)) AS weighted
+FROM (VALUES (1, NULL::float8, NULL::float8, NULL::integer),
+             (2, 1.0, 0.05, 16),
+             (3, 2.0, NULL, NULL)) t(ord, v, alpha, capacity);
