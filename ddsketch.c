@@ -3015,8 +3015,21 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 
 		double	start, end;
 
-		bucket_from = ddsketch_map_lower_bound(alpha, buckets[i].index);
-		bucket_to = ddsketch_map_upper_bound(alpha, buckets[i].index);
+		/*
+		 * The bucket index only encodes the magnitude, so for the negative
+		 * part of the store the bounds have to be negated (and swapped, as
+		 * the negating reverses the ordering).
+		 */
+		if (i >= nbuckets_negative)
+		{
+			bucket_from = ddsketch_map_lower_bound(alpha, buckets[i].index);
+			bucket_to = ddsketch_map_upper_bound(alpha, buckets[i].index);
+		}
+		else
+		{
+			bucket_from = -ddsketch_map_upper_bound(alpha, buckets[i].index);
+			bucket_to = -ddsketch_map_lower_bound(alpha, buckets[i].index);
+		}
 
 		/* How many items to skip in order to cross the lower threshold? */
 		count_skip = Max(0, (count_low - count_done - 1));

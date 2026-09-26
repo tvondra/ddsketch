@@ -64,3 +64,19 @@ SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), -0.1, 1.0)   BETWEEN 4750000
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.1, 1.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.9, 0.1)   BETWEEN 4750000 AND 5250000 FROM random_data;
 SELECT ddsketch_sum(ddsketch(1000 * v, 0.05, 1024), 0.5, 0.5)   BETWEEN 4750000 AND 5250000 FROM random_data;
+
+-- Negative buckets must contribute negative sums and averages.
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s FROM (VALUES (-2.0), (-1.0)) t(v)
+)
+SELECT ddsketch_sum(s) BETWEEN -3.15 AND -2.85 AS negative_sum,
+       ddsketch_avg(s) BETWEEN -1.575 AND -1.425 AS negative_avg
+FROM sketch;
+
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s
+    FROM (VALUES (-2.0), (-1.0), (1.0), (2.0)) t(v)
+)
+SELECT abs(ddsketch_sum(s)) < 1e-12 AS symmetric_sum,
+       ddsketch_sum(s, 0.0, 0.5) BETWEEN -3.15 AND -2.85 AS negative_half
+FROM sketch;
