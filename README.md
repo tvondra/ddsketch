@@ -69,6 +69,11 @@ that determines how closely is the CDF approximated. The value limits
 the size of the "buckets" in the ddsketch, so the lower the value the
 larger the sketch.
 
+Inputs must be finite and their magnitude must not exceed `max_indexable`
+reported by `ddsketch_info(alpha)`. Values with magnitude at or below
+`min_indexable` are represented by the zero bucket; the relative-error
+guarantee does not apply to these values.
+
 Each bucket is represented by a single 8B counter, so 1000 buckets means
 the ddsketch is ~8kB. That is however before the transparent compression
 all varlena types go through, so the on-disk size may be much smaller.
