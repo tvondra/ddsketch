@@ -74,9 +74,10 @@ reported by `ddsketch_info(alpha)`. Values with magnitude at or below
 `min_indexable` are represented by the zero bucket; the relative-error
 guarantee does not apply to these values.
 
-Each bucket is represented by a single 8B counter, so 1000 buckets means
-the ddsketch is ~8kB. That is however before the transparent compression
-all varlena types go through, so the on-disk size may be much smaller.
+Each bucket stores a 32-bit index and a 64-bit counter. Including
+alignment, this is typically 16 bytes per bucket, plus a fixed header
+per sketch. Thus 1000 buckets use about 16kB before PostgreSQL's
+transparent compression, which may reduce the on-disk size.
 
 
 ## Advanced usage
