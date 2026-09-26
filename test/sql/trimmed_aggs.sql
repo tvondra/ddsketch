@@ -80,3 +80,16 @@ WITH sketch AS (
 SELECT abs(ddsketch_sum(s)) < 1e-12 AS symmetric_sum,
        ddsketch_sum(s, 0.0, 0.5) BETWEEN -3.15 AND -2.85 AS negative_half
 FROM sketch;
+
+-- An all-zero sketch has non-NULL zero sum and average.
+SELECT ddsketch_sum(ddsketch(0.0, 3::bigint, 0.05, 16)) AS zero_sum,
+       ddsketch_avg(ddsketch(0.0, 3::bigint, 0.05, 16)) AS zero_avg;
+
+-- Zeros count toward both the average divisor and trimmed rank positions.
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s FROM (VALUES (0.0), (0.0), (0.0), (2.0)) t(v)
+)
+SELECT ddsketch_sum(s) / ddsketch_avg(s) = ddsketch_count(s) AS counts_zeros,
+       ddsketch_sum(s, 0.0, 0.5) AS zero_prefix_sum,
+       ddsketch_avg(s, 0.0, 0.5) AS zero_prefix_avg
+FROM sketch;
