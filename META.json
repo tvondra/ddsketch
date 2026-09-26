@@ -13,8 +13,8 @@
       }
    },
    "provides": {
-     "quantile": {
-       "file": "sql/ddsketch--2.0.0--dev.sql",
+     "ddsketch": {
+       "file": "sql/ddsketch--2.0.0-dev.sql",
        "docfile" : "README.md",
        "version": "2.0.0-dev"
      }
