@@ -7,3 +7,8 @@ SELECT ddsketch_buckets(0.05, '-Infinity'::float8, 1.0) LIMIT 1;
 ERROR:  invalid range (-Infinity, 1.000000e+00)
 SELECT ddsketch_buckets(0.05, -1.0, 'Infinity'::float8) LIMIT 1;
 ERROR:  invalid range (-1.000000e+00, Infinity)
+-- Name the failing endpoint and report its absolute magnitude.
+SELECT ddsketch_buckets(0.1, -1.7e308::float8, 1.0) LIMIT 1;
+ERROR:  minimum value is outside indexable range (1.700000e+308 > 1.470840e+308)
+SELECT ddsketch_buckets(0.1, -1.0, 1.7e308::float8) LIMIT 1;
+ERROR:  maximum value is outside indexable range (1.700000e+308 > 1.470840e+308)
