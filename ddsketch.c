@@ -542,6 +542,19 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 		int64	count = 0;
 		double	value = values[i];
 
+		/* handle infinity/NaN values by mapping them to 0.0, 1.0 and NaN */
+		if (!isfinite(value))
+		{
+			if (isnan(value))
+				result[i] = NAN;
+			else if (value < 0)	/* -infinity */
+				result[i] = 0.0;
+			else				/* infinity */
+				result[i] = 1.0;
+
+			continue;
+		}
+
 		if (value > min_indexable_value)	/* value in positive part */
 		{
 			int		j;
