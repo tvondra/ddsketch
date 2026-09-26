@@ -9,7 +9,7 @@ DISTVERSION  = $(shell grep -m 1 '[[:space:]]\{3\}"version":' META.json | \
 MODULE_big = ddsketch
 OBJS = ddsketch.o
 
-DATA = sql/ddsketch--1.0.0.sql sql/ddsketch--1.0.0--1.0.1.sql sql/ddsketch--1.0.1--1.0.2-dev.sql sql/ddsketch--2.0.0-dev.sql
+DATA = sql/ddsketch--2.0.0-dev.sql
 
 REGRESS      = --schedule=$(srcdir)/test/parallel_schedule
 REGRESS_OPTS = --inputdir=test
