@@ -63,3 +63,11 @@ SELECT ddsketch_percentile_of(s, 'NaN'::float8) AS nan,
        ddsketch_percentile_of(s, 'Infinity'::float8) AS above,
        ddsketch_percentile_of(s, ARRAY['NaN', '-Infinity', 'Infinity']::float8[]) AS probes
 FROM sketch;
+
+-- A singleton's matching bucket contributes one half, not zero.
+SELECT ddsketch_percentile_of(ddsketch(1.0, 0.05, 16), 1.0) AS positive,
+       ddsketch_percentile_of(ddsketch(-1.0, 0.05, 16), -1.0) AS negative;
+
+-- Keep odd halves in both stores, without halving the zero bucket.
+SELECT ddsketch_percentile_of(ddsketch(v, n, 0.05, 16), ARRAY[-1.0, 0.0, 1.0, 2.0]::float8[]) AS ranks
+FROM (VALUES (-1.0, 3::bigint), (0.0, 2), (1.0, 3)) t(v, n);

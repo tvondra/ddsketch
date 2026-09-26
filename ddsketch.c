@@ -510,6 +510,11 @@ ddsketch_compute_quantiles(ddsketch_t *sketch,
  *
  * Essentially an inverse to ddsketch_compute_quantiles.
  *
+ * The estimate includes half the matching bucket's count, including fractional
+ * halves for odd counts. Preceding buckets contribute their full counts; the
+ * result is divided by the total count. The zero bucket is an exception and is
+ * not halved.
+ *
  * XXX Unlike ddsketch_compute_quantiles, there's no guarantee regarding
  * errors guarantees - the relative error guarantees are due to sizing
  * the bucket ranges [min,max] in a smart way, so that (max-min)/min is
@@ -543,6 +548,7 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 	for (i = 0; i < nvalues; i++)
 	{
 		int64	count = 0;
+		int64	equal_count = 0;
 		double	value = values[i];
 
 		CHECK_FOR_INTERRUPTS();
@@ -584,7 +590,7 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 				if (buckets[j].index < index)
 					count += buckets[j].count;
 				else
-					count += buckets[j].count / 2;
+					equal_count = buckets[j].count;
 			}
 		}
 		else if (value < -min_indexable_value)	/* value in negative part */
@@ -603,8 +609,7 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 				if (buckets[j].index > index)
 					count += buckets[j].count;
 				else
-					/* FIXME should this add just half the bucket? */
-					count += buckets[j].count / 2;
+					equal_count = buckets[j].count;
 			}
 		}
 		else
@@ -627,7 +632,7 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 		 * formula works with ranks [0, n-1], following a R type-7 convention.
 		 * This function works with number of items at or below the goal.
 		 */
-		result[i] = count / (double) sketch->count;
+		result[i] = (count + equal_count / 2.0) / (double) sketch->count;
 	}
 
 	return result;
