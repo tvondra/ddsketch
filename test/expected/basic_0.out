@@ -317,3 +317,26 @@ SELECT ddsketch_union((SELECT ddsketch(v, 0.05, 1024)
  flags 0 count 3 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 3 2 (7, 1) (0, 1) (17, 1)
 (1 row)
 
+-- These magnitudes are finite but exceed the mapping range for alpha = 0.1.
+SELECT ddsketch(1.7e308::float8, 0.1, 16);
+ERROR:  value is outside ddsketch indexable range (1.700000e+308 > 1.470840e+308)
+SELECT ddsketch(-1.7e308::float8, 2::bigint, 0.1, 16);
+ERROR:  value is outside ddsketch indexable range (1.700000e+308 > 1.470840e+308)
+SELECT ddsketch_add(NULL::ddsketch, 1.7e308::float8, 0.1, 16);
+ERROR:  value is outside ddsketch indexable range (1.700000e+308 > 1.470840e+308)
+SELECT ddsketch_add(NULL::ddsketch, -1.7e308::float8, 2::bigint, 0.1, 16);
+ERROR:  value is outside ddsketch indexable range (1.700000e+308 > 1.470840e+308)
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 1.7e308::float8], 0.1, 16);
+ERROR:  value is outside ddsketch indexable range (1.700000e+308 > 1.470840e+308)
+-- The advertised endpoints themselves are still accepted.
+SELECT ddsketch_count(ddsketch(v, 0.1, 16))
+FROM (
+    SELECT max_indexable AS v FROM ddsketch_info(0.1)
+    UNION ALL
+    SELECT -max_indexable FROM ddsketch_info(0.1)
+) t;
+ ddsketch_count 
+----------------
+              2
+(1 row)
+

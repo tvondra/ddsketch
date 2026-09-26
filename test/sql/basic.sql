@@ -152,3 +152,18 @@ SELECT ddsketch_union((SELECT ddsketch(v, 0.05, 1024)
                          FROM (VALUES (-2.0::float8), (-1.0::float8)) t(v)),
                       (SELECT ddsketch(v, 0.05, 1024)
                          FROM (VALUES (5.0::float8)) t(v)))::text::ddsketch;
+
+-- These magnitudes are finite but exceed the mapping range for alpha = 0.1.
+SELECT ddsketch(1.7e308::float8, 0.1, 16);
+SELECT ddsketch(-1.7e308::float8, 2::bigint, 0.1, 16);
+SELECT ddsketch_add(NULL::ddsketch, 1.7e308::float8, 0.1, 16);
+SELECT ddsketch_add(NULL::ddsketch, -1.7e308::float8, 2::bigint, 0.1, 16);
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 1.7e308::float8], 0.1, 16);
+
+-- The advertised endpoints themselves are still accepted.
+SELECT ddsketch_count(ddsketch(v, 0.1, 16))
+FROM (
+    SELECT max_indexable AS v FROM ddsketch_info(0.1)
+    UNION ALL
+    SELECT -max_indexable FROM ddsketch_info(0.1)
+) t;
