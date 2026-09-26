@@ -64,10 +64,10 @@ the `alpha` and `nbuckets` parameters.
 
 ## Accuracy
 
-All functions building the ddsketch summaries accept `alpha` parameter
-that determines how closely is the CDF approximated. The value limits
-the size of the "buckets" in the ddsketch, so the lower the value the
-larger the sketch.
+All functions building ddsketch summaries accept an `alpha` parameter
+that bounds relative error in quantile values, not error in the CDF.
+It limits logarithmic bucket width, so lower values generally require
+more buckets. Inverse-rank estimates have no corresponding error bound.
 
 Inputs must be finite and their magnitude must not exceed `max_indexable`
 reported by `ddsketch_info(alpha)`. Values with magnitude at or below
@@ -219,8 +219,8 @@ END $$;
 
 ## Trimmed aggregates
 
-The extension provides several variants of trimmed (truncated) average and
-sum aggregates, both for individual values and pre-aggregated sketches.
+The extension provides trimmed (truncated) average and sum functions for
+precomputed sketches. Build a sketch with `ddsketch` before calling them.
 
 * `ddsketch_sum(sketch ddsketch, low double precision, high double precision)`
 
@@ -487,10 +487,10 @@ it should not be very difficult to extend it to other numeric types (both
 integer and/or floating point, including `numeric`). Ultimately, it could
 support any data type with a concept of ordering and mean.
 
-The estimates do depend on the order of incoming data, and so may differ
-between runs. This applies especially to parallel queries, for which the
-workers generally see different subsets of data for each run (and build
-different sketches, which are then combined together).
+With constant configuration, bucket counts and quantile estimates do not
+depend on input order or parallel worker assignment. This implementation
+does not collapse buckets: it reports an error if the capacity is
+exceeded, subject to the intermediate merge limits described above.
 
 
 License
