@@ -453,6 +453,8 @@ ddsketch_compute_quantiles(ddsketch_t *sketch,
 		double	goal = (percentiles[i] * (sketch->count - 1));
 		bucket_t *buckets;
 
+		CHECK_FOR_INTERRUPTS();
+
 		/*
 		 * Process the negative, zero and positive stores, in this order.
 		 */
@@ -542,6 +544,8 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 	{
 		int64	count = 0;
 		double	value = values[i];
+
+		CHECK_FOR_INTERRUPTS();
 
 		/* handle infinity/NaN values by mapping them to 0.0, 1.0 and NaN */
 		if (!isfinite(value))
@@ -983,6 +987,8 @@ check_percentiles(const double *percentiles, int npercentiles)
 
 	for (i = 0; i < npercentiles; i++)
 	{
+		CHECK_FOR_INTERRUPTS();
+
 		if (!((percentiles[i] >= 0.0) && (percentiles[i] <= 1.0)))
 			elog(ERROR, "invalid percentile value %f, should be in [0.0, 1.0]",
 				 percentiles[i]);
@@ -1933,7 +1939,10 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 							 "an element", &nvalues);
 
 	for (i = 0; i < nvalues; i++)
+	{
+		CHECK_FOR_INTERRUPTS();
 		ddsketch_add(state, values[i], 1);
+	}
 
 	sketch = ddsketch_aggstate_to_ddsketch(state);
 	ddsketch_aggstate_free(state);
