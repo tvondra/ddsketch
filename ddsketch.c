@@ -2735,7 +2735,7 @@ ddsketch_sketch_info(PG_FUNCTION_ARGS)
 Datum
 ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
 {
-	ddsketch_t *sketch = PG_GETARG_DDSKETCH(0);
+	ddsketch_t *sketch;
 	FuncCallContext *fctx;
 	TupleDesc		tupdesc;
 
@@ -2751,13 +2751,19 @@ ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
 		if (get_call_result_type(fcinfo, NULL, &tupdesc) != TYPEFUNC_COMPOSITE)
 			elog(ERROR, "return type must be a row type");
 
-		fctx->user_fctx = tupdesc;
+		/* remember the detoasted sketch for all rows */
+		sketch = (ddsketch_t *) PG_GETARG_DDSKETCH(0);
+		fctx->tuple_desc = tupdesc;
+		fctx->user_fctx = sketch;
 		fctx->max_calls = sketch->nbuckets;
 
 		MemoryContextSwitchTo(mctx);
 	}
 
 	fctx = SRF_PERCALL_SETUP();
+
+	sketch = fctx->user_fctx;
+	tupdesc = fctx->tuple_desc;
 
 	if (fctx->call_cntr < fctx->max_calls)
 	{
@@ -2769,8 +2775,6 @@ ddsketch_sketch_buckets(PG_FUNCTION_ARGS)
 
 		double		lower_bound = ddsketch_map_lower_bound(sketch->alpha, bucket->index);
 		double		upper_bound = ddsketch_map_upper_bound(sketch->alpha, bucket->index);
-
-		tupdesc = fctx->user_fctx;
 
 		memset(nulls, 0, sizeof(nulls));
 
