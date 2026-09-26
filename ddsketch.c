@@ -2922,14 +2922,21 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 			min_value = (max_value > 0) ? (min_indexable_value) : (-min_indexable_value);
 
 		if (fabs(max_value) < min_indexable_value)
-			max_value = (min_value > 0) ? (-min_indexable_value) : min_indexable_value;
+			max_value = (min_value > 0) ? (min_indexable_value) : (-min_indexable_value);
 
 		/*
 		 * Now calculate the number of buckets to generate - we need to be
-		 * careful about the case containing 0.
+		 * careful about the case containing 0, or ranges covered by the zero
+		 * bucket.
 		 */
-		if (((min_value > 0) && (max_value > 0)) ||
-			((min_value < 0) && (max_value < 0)))
+		if ((min_value >= -min_indexable_value) &&
+			(max_value <= min_indexable_value))
+		{
+			/* the requested range is covered by the zero bucket */
+			fctx->max_calls = 0;
+		}
+		else if (((min_value > 0) && (max_value > 0)) ||
+				 ((min_value < 0) && (max_value < 0)))
 		{
 			int	min_index = ddsketch_map_index2(alpha, fabs(min_value));
 			int	max_index = ddsketch_map_index2(alpha, fabs(max_value));
