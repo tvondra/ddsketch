@@ -460,6 +460,14 @@ UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
 
 Performs incremental update of the sketch by merging-in another sketch.
 
+Both sketches must use the same `alpha`. The result uses the larger input
+capacity, including sketch aggregation and parallel combination. It may
+error out if the combined buckets exceed that capacity.
+
+A later high-capacity input cannot rescue an earlier intermediate merge
+that already exceeded its limit; use consistent, sufficiently large
+capacities when aggregating a sequence of sketches.
+
 #### Synopsis
 
 ```sql

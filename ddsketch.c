@@ -1338,13 +1338,8 @@ ddsketch_add_sketch(PG_FUNCTION_ARGS)
 	if (state->alpha != sketch->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
 
-	/*
-	 * XXX Should we compare the maxbuckets too? We reject values that don't
-	 * fit into the sketch, so one sketch might contain values the other would
-	 * have rejected - that doesn't seem great. Or we should at least pick the
-	 * maxbuckets in some consistent way, instead of picking the value from
-	 * the first sketch.
-	 */
+	/* use capacity from the larger input */
+	state->maxbuckets = Max(state->maxbuckets, sketch->maxbuckets);
 
 	/* checking the total also bounds every individual bucket count */
 	if (pg_add_s64_overflow(state->count, sketch->count, &state->count))
@@ -1649,13 +1644,8 @@ ddsketch_combine(PG_FUNCTION_ARGS)
 	if (src->alpha != dst->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
 
-	/*
-	 * XXX Should we compare the maxbuckets too? We reject values that don't
-	 * fit into the sketch, so one sketch might contain values the other would
-	 * have rejected - that doesn't seem great. Or we should at least pick the
-	 * maxbuckets in some consistent way, instead of picking the value from
-	 * the first sketch.
-	 */
+	/* use capacity from the larger input */
+	dst->maxbuckets = Max(dst->maxbuckets, src->maxbuckets);
 
 	/* checking the total also bounds every individual bucket count */
 	if (pg_add_s64_overflow(dst->count, src->count, &dst->count))
@@ -1989,13 +1979,8 @@ ddsketch_union_double_increment(PG_FUNCTION_ARGS)
 	if (sketch->alpha != state->alpha)
 		elog(ERROR, "can't merge sketches with different alpha values");
 
-	/*
-	 * XXX Should we compare the maxbuckets too? We reject values that don't
-	 * fit into the sketch, so one sketch might contain values the other would
-	 * have rejected - that doesn't seem great. Or we should at least pick the
-	 * maxbuckets in some consistent way, instead of picking the value from
-	 * the first sketch.
-	 */
+	/* use capacity from the larger input */
+	state->maxbuckets = Max(state->maxbuckets, sketch->maxbuckets);
 
 	/* checking the total also bounds every individual bucket count */
 	if (pg_add_s64_overflow(state->count, sketch->count, &state->count))
