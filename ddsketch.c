@@ -616,7 +616,13 @@ ddsketch_compute_quantiles_of(ddsketch_t *sketch,
 			count += sketch->zero_count;
 		}
 
-		result[i] = count / ((double) sketch->count - 1);
+		/*
+		 * It might seem this should divide by (count - 1), to make it inverse
+		 * to ddsketch_compute_quantiles(). But that'd be wrong - the quantiles()
+		 * formula works with ranks [0, n-1], following a R type-7 convention.
+		 * This function works with number of items at or below the goal.
+		 */
+		result[i] = count / (double) sketch->count;
 	}
 
 	return result;
