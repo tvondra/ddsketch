@@ -1,0 +1,27 @@
+-- The larger capacity must win in either argument/input order.
+CREATE TEMP TABLE capacity_sketches (ord integer, s ddsketch);
+INSERT INTO capacity_sketches SELECT 1, ddsketch(1.0, 0.01, 16);
+INSERT INTO capacity_sketches SELECT 2, ddsketch(power(1.1, i), 0.01, 32) FROM generate_series(0, 16) s(i);
+SELECT (ddsketch_info(ddsketch_union(a.s, b.s))).max_buckets AS forward,
+       (ddsketch_info(ddsketch_union(b.s, a.s))).max_buckets AS reverse
+FROM capacity_sketches a, capacity_sketches b WHERE a.ord = 1 AND b.ord = 2;
+SELECT (ddsketch_info(ddsketch(s ORDER BY ord))).max_buckets AS forward,
+       (ddsketch_info(ddsketch(s ORDER BY ord DESC))).max_buckets AS reverse
+FROM capacity_sketches;
+DROP TABLE capacity_sketches;
+
+-- Different capacities also meet in the partial-state combine function.
+SET enable_partitionwise_aggregate = on;
+SET max_parallel_workers_per_gather = 0;
+CREATE TEMP TABLE capacity_parts (part integer, v double precision, capacity integer) PARTITION BY LIST (part);
+CREATE TEMP TABLE capacity_parts_a PARTITION OF capacity_parts FOR VALUES IN (0);
+CREATE TEMP TABLE capacity_parts_b PARTITION OF capacity_parts FOR VALUES IN (1);
+INSERT INTO capacity_parts SELECT 0, 1.0, 16 FROM generate_series(1, 100);
+INSERT INTO capacity_parts SELECT 1, power(1.1, i % 17), 32 FROM generate_series(1, 100) s(i);
+ANALYZE capacity_parts;
+EXPLAIN (COSTS OFF) SELECT ddsketch(v, 0.01, capacity) FROM capacity_parts;
+SELECT max_buckets, positive_buckets, count
+FROM ddsketch_info((SELECT ddsketch(v, 0.01, capacity) FROM capacity_parts));
+DROP TABLE capacity_parts;
+RESET enable_partitionwise_aggregate;
+RESET max_parallel_workers_per_gather;
