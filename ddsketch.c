@@ -2991,7 +2991,8 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
  */
 static void
 ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
-					double alpha, int64 count, double low, double high,
+					double alpha, int64 count, int64 zero_count,
+					double low, double high,
 					double *sump, int64 *countp)
 {
 	int		i;
@@ -3004,11 +3005,18 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 	count_low = floor(count * low);
 	count_high = ceil(count * high);
 
+	/*
+	 * Walk the store in ascending value order. Zeros are represented by
+	 * a "zero bucket" that sorts between the negative and positive parts.
+	 * It's not an actual bucket, we just handle it like one, so we have
+	 * (nbuckets + 1) iterations.
+	 */
 	count = 0;
-	for (i = 0; i < nbuckets; i++)
+	for (i = 0; i <= nbuckets; i++)
 	{
 		int64	count_add = 0;
 		int64	count_skip;
+		int64	bucket_count;
 
 		double	bucket_from,
 				bucket_to;
@@ -3020,50 +3028,69 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 		 * part of the store the bounds have to be negated (and swapped, as
 		 * the negating reverses the ordering).
 		 */
-		if (i >= nbuckets_negative)
+		if (i < nbuckets_negative)
 		{
-			bucket_from = ddsketch_map_lower_bound(alpha, buckets[i].index);
-			bucket_to = ddsketch_map_upper_bound(alpha, buckets[i].index);
+			/* Negative part. */
+			bucket_from = -ddsketch_map_upper_bound(alpha, buckets[i].index);
+			bucket_to = -ddsketch_map_lower_bound(alpha, buckets[i].index);
+			bucket_count = buckets[i].count;
+		}
+		else if (i == nbuckets_negative)
+		{
+			/* The zero bucket, holding exact zeros. */
+			bucket_from = 0.0;
+			bucket_to = 0.0;
+			bucket_count = zero_count;
 		}
 		else
 		{
-			bucket_from = -ddsketch_map_upper_bound(alpha, buckets[i].index);
-			bucket_to = -ddsketch_map_lower_bound(alpha, buckets[i].index);
+			/* Positive part, shifted by the zero bucket. */
+			bucket_from = ddsketch_map_lower_bound(alpha, buckets[i - 1].index);
+			bucket_to = ddsketch_map_upper_bound(alpha, buckets[i - 1].index);
+			bucket_count = buckets[i - 1].count;
 		}
+
+		/*
+		 * Skip empty buckets, to avoid division by zero in the interpolation.
+		 *
+		 * XXX Only the zero bucket can be actually empty, in practice.
+		 */
+		if (bucket_count == 0)
+			continue;
 
 		/* How many items to skip in order to cross the lower threshold? */
 		count_skip = Max(0, (count_low - count_done - 1));
-		count_skip = Min(count_skip, buckets[i].count);
+		count_skip = Min(count_skip, bucket_count);
 
 		/* How many items to consider including in the sum? */
-		count_add = buckets[i].count - count_skip;
+		count_add = bucket_count - count_skip;
 
-		Assert((count_skip >= 0) && (count_skip <= buckets[i].count));
-		Assert((count_add >= 0) && (count_add <= buckets[i].count));
-		Assert(count_add + count_skip == buckets[i].count);
+		Assert((count_skip >= 0) && (count_skip <= bucket_count));
+		Assert((count_add >= 0) && (count_add <= bucket_count));
+		Assert(count_add + count_skip == bucket_count);
 
 		/*
 		 * We might cross the upper threshold, ignore those too, so remove
 		 * those items from the count.
 		 */
-		count_add -= Max(0, count_done + buckets[i].count - count_high);
+		count_add -= Max(0, count_done + bucket_count - count_high);
 
-		Assert((count_add >= 0) && (count_add <= buckets[i].count));
-		Assert(count_add + count_skip <= buckets[i].count);
+		Assert((count_add >= 0) && (count_add <= bucket_count));
+		Assert(count_add + count_skip <= bucket_count);
 
 		/*
 		 * Assume the values in the bucket are distributed uniformly, so
 		 * make sure we include just the appropriate part of the bucket.
 		 */
-		start = bucket_from + (count_skip * (bucket_to - bucket_from)) / buckets[i].count;
-		end = bucket_from + ((count_skip + count_add) * (bucket_to - bucket_from)) / buckets[i].count;
+		start = bucket_from + (count_skip * (bucket_to - bucket_from)) / bucket_count;
+		end = bucket_from + ((count_skip + count_add) * (bucket_to - bucket_from)) / bucket_count;
 
 		/* increment the sum / count */
 		sum += (start + end) / 2.0 * count_add;
 		count += count_add;
 
 		/* consider the whole bucket processed */
-		count_done += buckets[i].count;
+		count_done += bucket_count;
 
 		/* break once we cross the high threshold */
 		if (count_done >= count_high)
@@ -3092,7 +3119,8 @@ ddsketch_sketch_sum(PG_FUNCTION_ARGS)
 	check_trim_values(low, high);
 
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
-						 sketch->alpha, sketch->count, low, high, &sum, &count);
+						 sketch->alpha, sketch->count, sketch->zero_count,
+						 low, high, &sum, &count);
 
 	PG_FREE_IF_COPY(sketch, 0);
 
@@ -3120,7 +3148,8 @@ ddsketch_sketch_avg(PG_FUNCTION_ARGS)
 	check_trim_values(low, high);
 
 	ddsketch_trimmed_agg(sketch->buckets, sketch->nbuckets, sketch->nbuckets_negative,
-						 sketch->alpha, sketch->count, low, high, &sum, &count);
+						 sketch->alpha, sketch->count, sketch->zero_count,
+						 low, high, &sum, &count);
 
 	PG_FREE_IF_COPY(sketch, 0);
 

@@ -241,3 +241,24 @@ FROM sketch;
  t             | t
 (1 row)
 
+-- An all-zero sketch has non-NULL zero sum and average.
+SELECT ddsketch_sum(ddsketch(0.0, 3::bigint, 0.05, 16)) AS zero_sum,
+       ddsketch_avg(ddsketch(0.0, 3::bigint, 0.05, 16)) AS zero_avg;
+ zero_sum | zero_avg 
+----------+----------
+        0 |        0
+(1 row)
+
+-- Zeros count toward both the average divisor and trimmed rank positions.
+WITH sketch AS (
+    SELECT ddsketch(v, 0.05, 16) AS s FROM (VALUES (0.0), (0.0), (0.0), (2.0)) t(v)
+)
+SELECT ddsketch_sum(s) / ddsketch_avg(s) = ddsketch_count(s) AS counts_zeros,
+       ddsketch_sum(s, 0.0, 0.5) AS zero_prefix_sum,
+       ddsketch_avg(s, 0.0, 0.5) AS zero_prefix_avg
+FROM sketch;
+ counts_zeros | zero_prefix_sum | zero_prefix_avg 
+--------------+-----------------+-----------------
+ t            |               0 |               0
+(1 row)
+
