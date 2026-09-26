@@ -3105,7 +3105,7 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 			continue;
 
 		/* How many items to skip in order to cross the lower threshold? */
-		count_skip = Max(0, (count_low - count_done - 1));
+		count_skip = Max(0, (count_low - count_done));
 		count_skip = Min(count_skip, bucket_count);
 
 		/* How many items to consider including in the sum? */
