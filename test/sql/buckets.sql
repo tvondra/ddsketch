@@ -16,3 +16,7 @@ SELECT * FROM ddsketch_buckets(0.05, -1e-307, 1e-320);
 SELECT * FROM ddsketch_buckets(0.05, -1e-320, 1e-307);
 
 SELECT * FROM ddsketch_buckets(0.05, -1e-307, 1e-307);
+
+-- exact zero, should produce just one bucket
+SELECT * FROM ddsketch_buckets(0.05, -2.4592921594026965e-308, 2.46e-308);
+SELECT * FROM ddsketch_buckets(0.05, -2.46e-308, 2.4592921594026965e-308);

@@ -98,3 +98,16 @@ SELECT * FROM ddsketch_buckets(0.05, -1e-307, 1e-307);
     29 |        -7063 |  9.08529702796716e-308 |  1.00416440835421e-307
 (30 rows)
 
+-- exact zero, should produce just one bucket
+SELECT * FROM ddsketch_buckets(0.05, -2.4592921594026965e-308, 2.46e-308);
+ index | bucket_index |      bucket_min       |      bucket_max       
+-------+--------------+-----------------------+-----------------------
+     0 |        -7077 | 2.23779045681523e-308 | 2.47334734700644e-308
+(1 row)
+
+SELECT * FROM ddsketch_buckets(0.05, -2.46e-308, 2.4592921594026965e-308);
+ index | bucket_index |       bucket_min       |       bucket_max       
+-------+--------------+------------------------+------------------------
+     0 |        -7077 | -2.47334734700644e-308 | -2.23779045681523e-308
+(1 row)
+
