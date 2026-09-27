@@ -2937,10 +2937,10 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 		 * track such values in the zero bucket. So we just replace the value
 		 * with min_indexable_value, if needed.
 		 */
-		if (fabs(min_value) < min_indexable_value)
+		if (fabs(min_value) <= min_indexable_value)
 			min_value = (max_value > 0) ? (min_indexable_value) : (-min_indexable_value);
 
-		if (fabs(max_value) < min_indexable_value)
+		if (fabs(max_value) <= min_indexable_value)
 			max_value = (min_value > 0) ? (min_indexable_value) : (-min_indexable_value);
 
 		/*
