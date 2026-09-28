@@ -186,3 +186,79 @@ FROM ddsketch_info((SELECT ddsketch(v, n, 0.05, 16) FROM zero_parts));
 DROP TABLE zero_parts;
 RESET enable_partitionwise_aggregate;
 RESET max_parallel_workers_per_gather;
+-- verify parallel safety of scalar functions
+CREATE TABLE parallel_safety_data AS
+SELECT (i % 10 - 5)::float8 AS v FROM generate_series(1, 10000) s(i);
+ANALYZE parallel_safety_data;
+SET max_parallel_workers_per_gather = 2;
+SET min_parallel_table_scan_size = 0;
+SET parallel_setup_cost = 0;
+SET parallel_tuple_cost = 0;
+-- transition functions allow partial aggregation despite missing labels
+EXPLAIN (COSTS OFF)
+SELECT ddsketch_count(ddsketch(v, 0.05, 16)),
+       ddsketch_count(ddsketch(v, 2::bigint, 0.05, 16))
+FROM parallel_safety_data;
+                         QUERY PLAN                          
+-------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Seq Scan on parallel_safety_data
+(5 rows)
+
+SELECT ddsketch_count(ddsketch(v, 0.05, 16)) AS plain_count,
+       ddsketch_count(ddsketch(v, 2::bigint, 0.05, 16)) AS weighted_count
+FROM parallel_safety_data;
+ plain_count | weighted_count 
+-------------+----------------
+       10000 |          20000
+(1 row)
+
+-- incrementally constructed inputs can also be built in parallel workers
+EXPLAIN (COSTS OFF)
+SELECT ddsketch(ddsketch_add(NULL::ddsketch, v, 0.05, 16)) FROM parallel_safety_data;
+                         QUERY PLAN                          
+-------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Seq Scan on parallel_safety_data
+(5 rows)
+
+SELECT ddsketch_count(ddsketch(ddsketch_add(NULL::ddsketch, v, 0.05, 16))) AS count
+FROM parallel_safety_data;
+ count 
+-------
+ 10000
+(1 row)
+
+-- text casts and direct send calls are planner-visible, unlike support calls
+EXPLAIN (COSTS OFF)
+SELECT ddsketch(ddsketch_add(NULL::ddsketch, v, 0.05, 16)::text::ddsketch),
+       count(ddsketch_send(ddsketch_add(NULL::ddsketch, v, 0.05, 16)))
+FROM parallel_safety_data;
+                         QUERY PLAN                          
+-------------------------------------------------------------
+ Finalize Aggregate
+   ->  Gather
+         Workers Planned: 2
+         ->  Partial Aggregate
+               ->  Parallel Seq Scan on parallel_safety_data
+(5 rows)
+
+SELECT ddsketch_count(ddsketch(ddsketch_add(NULL::ddsketch, v, 0.05, 16)::text::ddsketch)) AS restored_count,
+       count(ddsketch_send(ddsketch_add(NULL::ddsketch, v, 0.05, 16))) AS sent_count
+FROM parallel_safety_data;
+ restored_count | sent_count 
+----------------+------------
+          10000 |      10000
+(1 row)
+
+RESET max_parallel_workers_per_gather;
+RESET min_parallel_table_scan_size;
+RESET parallel_setup_cost;
+RESET parallel_tuple_cost;
+DROP TABLE parallel_safety_data;

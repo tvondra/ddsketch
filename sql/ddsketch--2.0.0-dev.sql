@@ -3,22 +3,22 @@ CREATE TYPE ddsketch;
 CREATE OR REPLACE FUNCTION ddsketch_in(cstring)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_in'
-    LANGUAGE C IMMUTABLE STRICT;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_out(ddsketch)
     RETURNS cstring
     AS 'ddsketch', 'ddsketch_out'
-    LANGUAGE C IMMUTABLE STRICT;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_send(ddsketch)
     RETURNS bytea
     AS 'ddsketch', 'ddsketch_send'
-    LANGUAGE C IMMUTABLE STRICT;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_recv(internal)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_recv'
-    LANGUAGE C IMMUTABLE STRICT;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE TYPE ddsketch (
     INPUT = ddsketch_in,
@@ -83,7 +83,7 @@ CREATE AGGREGATE ddsketch(ddsketch) (
 CREATE OR REPLACE FUNCTION ddsketch_count(ddsketch)
     RETURNS bigint
     AS 'ddsketch', 'ddsketch_count'
-    LANGUAGE C IMMUTABLE STRICT;
+    LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 
 CREATE OR REPLACE FUNCTION ddsketch_add_double_count(p_pointer internal, p_element double precision, p_count bigint, p_alpha double precision, p_buckets int)
@@ -104,22 +104,22 @@ CREATE AGGREGATE ddsketch(double precision, bigint, double precision, int) (
 CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_element double precision, p_alpha double precision, p_buckets int = NULL)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_add_double_increment'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_element double precision, p_count bigint, p_alpha double precision, p_buckets int = NULL)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_add_double_count_increment'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_add(p_sketch ddsketch, p_elements double precision[], p_alpha double precision, p_buckets int = NULL)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_add_double_array_increment'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE PARALLEL SAFE;
 
 CREATE OR REPLACE FUNCTION ddsketch_union(p_sketch1 ddsketch, p_sketch2 ddsketch)
     RETURNS ddsketch
     AS 'ddsketch', 'ddsketch_union_double_increment'
-    LANGUAGE C IMMUTABLE;
+    LANGUAGE C IMMUTABLE PARALLEL SAFE;
 
 
 CREATE OR REPLACE FUNCTION ddsketch_info(p_sketch ddsketch, out bytes bigint, out flags int, out alpha double precision, out count bigint, out zero_count bigint, out max_buckets int, out negative_buckets int, out positive_buckets int, out min_indexable double precision, out max_indexable double precision)
