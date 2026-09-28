@@ -3089,6 +3089,14 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 			count_low,
 			count_high;
 
+	/* Equal bounds are empty even when their scaled rank is fractional. */
+	if (low == high)
+	{
+		*sump = 0.0;
+		*countp = 0;
+		return;
+	}
+
 	/* translate the percentiles to counts */
 	count_low = ddsketch_count_fraction(count, low, false);
 	count_high = ddsketch_count_fraction(count, high, true);

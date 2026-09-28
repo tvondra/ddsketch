@@ -237,6 +237,9 @@ precomputed sketches. Build a sketch with `ddsketch` before calling them.
 * `ddsketch_avg(sketch ddsketch, low double precision, high double precision)`
 
 The `low` and `high` parameters specify where to truncate the data.
+Equal bounds select no observations, so both functions return `NULL`.
+For a nonempty interval, the lower rank is rounded down and the upper
+rank is rounded up to whole observations.
 
 
 ## Aggregate Functions

@@ -160,3 +160,21 @@ SELECT ddsketch_sum(s, 0.0, 0.0) AS empty_low,
   FROM trimmed_overflow_sketch;
 
 DROP TABLE trimmed_overflow_sketch;
+
+-- equal bounds describe an empty interval, including nonintegral ranks.
+WITH sketches AS (
+    SELECT v, n, ddsketch(v, n, 0.05, 16) AS s
+    FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+    CROSS JOIN (VALUES (1::bigint), (3), (5)) counts(n)
+    GROUP BY v, n
+)
+SELECT v, n, p,
+       (ddsketch_sum(s, p, p) IS NULL) AS empty_sums,
+       (ddsketch_avg(s, p, p) IS NULL) AS empty_averages
+FROM sketches
+CROSS JOIN (VALUES (0.0::float8), (0.25), (0.5), (0.75), (1.0)) bounds(p)
+ORDER BY v, n, p;
+
+-- a nonempty interval inside one rank must continue to include that rank.
+SELECT ddsketch_sum(ddsketch(1.0, 3::bigint, 0.05, 16), 0.4, 0.41) BETWEEN 0.95 AND 1.05 AS nonempty_sum,
+       ddsketch_avg(ddsketch(1.0, 3::bigint, 0.05, 16), 0.4, 0.41) BETWEEN 0.95 AND 1.05 AS nonempty_average;
