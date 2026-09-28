@@ -1758,7 +1758,7 @@ ddsketch_add_double_increment(PG_FUNCTION_ARGS)
 		int32	maxbuckets;
 
 		/*
-		 * We don't require compression, but only when there is an existing
+		 * We don't require alpha/nbuckets, but only when there is an existing
 		 * ddsketch value. Make sure the value was supplied.
 		 */
 		if (PG_ARGISNULL(2))
@@ -1833,7 +1833,7 @@ ddsketch_add_double_count_increment(PG_FUNCTION_ARGS)
 		int32	maxbuckets;
 
 		/*
-		 * We don't require compression, but only when there is an existing
+		 * We don't require alpha/nbuckets, but only when there is an existing
 		 * ddsketch value. Make sure the value was supplied.
 		 */
 		if (PG_ARGISNULL(3))
@@ -1921,7 +1921,7 @@ ddsketch_add_double_array_increment(PG_FUNCTION_ARGS)
 		int		maxbuckets;
 
 		/*
-		 * We don't require compression, but only when there is an existing
+		 * We don't require alpha/nbuckets, but only when there is an existing
 		 * ddsketch value. Make sure the value was supplied.
 		 */
 		if (PG_ARGISNULL(2))
