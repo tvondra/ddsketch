@@ -3047,6 +3047,34 @@ ddsketch_param_buckets(PG_FUNCTION_ARGS)
 }
 
 /*
+ * Translate a fraction of the total count into a number of items, clamping the
+ * results to the total count.
+ *
+ * The multiplication is done in double precision, and the result may not fit
+ * into an int64 - (double) PG_INT64_MAX rounds up to 2^63, which is one more
+ * than the largest representable value. Converting such a value back to int64
+ * is undefined behavior (in practice it produces PG_INT64_MIN), so clamp the
+ * result to the total count first. The fraction is in [0.0, 1.0], so the exact
+ * value never exceeds the count anyway.
+ */
+static int64
+ddsketch_count_fraction(int64 count, double fraction, bool round_up)
+{
+	double  value = (double) count * fraction;
+
+	value = (round_up) ? ceil(value) : floor(value);
+
+	if (value <= 0.0)
+		return 0;
+
+	/* compared as doubles, so that we never convert an out-of-range value */
+	if (value >= (double) count)
+		return count;
+
+	return (int64) value;
+}
+
+/*
  * Calculate trimmed aggregates from buckets.
  */
 static void
@@ -3062,8 +3090,8 @@ ddsketch_trimmed_agg(bucket_t *buckets, int nbuckets, int nbuckets_negative,
 			count_high;
 
 	/* translate the percentiles to counts */
-	count_low = floor(count * low);
-	count_high = ceil(count * high);
+	count_low = ddsketch_count_fraction(count, low, false);
+	count_high = ddsketch_count_fraction(count, high, true);
 
 	/*
 	 * Walk the store in ascending value order. Zeros are represented by
