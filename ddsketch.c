@@ -33,7 +33,10 @@
 #include "funcapi.h"
 
 #if PG_VERSION_NUM >= 120000
-#include "utils/float.h"	/* float8out_internal */
+#include "common/shortest_dec.h"
+#else
+/* should be enough for valid alpha values i [0.0001, 0.1] range */
+#define DOUBLE_SHORTEST_DECIMAL_LEN 40
 #endif
 
 PG_MODULE_MAGIC;
@@ -2359,9 +2362,17 @@ ddsketch_out(PG_FUNCTION_ARGS)
 	int			i;
 	ddsketch_t  *sketch = PG_GETARG_DDSKETCH(0);
 	StringInfoData	str;
-	char	    *alpha = float8out_internal(sketch->alpha);
+	char		alpha[DOUBLE_SHORTEST_DECIMAL_LEN];
 
 	AssertCheckDDSketch(sketch);
+
+	/* alpha must round-trip regardless of extra_float_digits. */
+#if PG_VERSION_NUM >= 120000
+	double_to_shortest_decimal_buf(sketch->alpha, alpha);
+#else
+	if (snprintf(alpha, sizeof(alpha), "%.*g", DBL_DIG + 2, sketch->alpha) < 0)
+		elog(ERROR, "failed to format alpha value %.*g", DBL_DIG + 2, sketch->alpha);
+#endif
 
 	initStringInfo(&str);
 
@@ -2373,7 +2384,6 @@ ddsketch_out(PG_FUNCTION_ARGS)
 		appendStringInfo(&str, " (%d, " INT64_FORMAT ")", sketch->buckets[i].index, sketch->buckets[i].count);
 
 	PG_FREE_IF_COPY(sketch, 0);
-	pfree(alpha);
 
 	PG_RETURN_CSTRING(str.data);
 }

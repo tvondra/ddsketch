@@ -18,3 +18,35 @@ SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 1 (-21474
 SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 0 (4000, 1)'::ddsketch;
 SELECT 'flags 0 count 1 alpha 0.1 zero_count 0 maxbuckets 16 buckets 1 1 (-4000, 1)'::ddsketch;
 SELECT ddsketch_count('flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 16 buckets 1 0 (4000, 1)'::ddsketch);
+
+-- make sure the output is round-trip safe, regardless of extra_float_digits
+WITH sketches AS (
+  SELECT ddsketch(v, 0.01234567890123456::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.09999999999999999::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.05::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+)
+SELECT ddsketch_union(s, s::text::ddsketch) FROM sketches;
+
+SET extra_float_digits = -3;
+WITH sketches AS (
+  SELECT ddsketch(v, 0.01234567890123456::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.09999999999999999::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.05::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+)
+SELECT ddsketch_union(s, s::text::ddsketch) FROM sketches;
+
+SET extra_float_digits = 0;
+WITH sketches AS (
+  SELECT ddsketch(v, 0.01234567890123456::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.09999999999999999::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+  UNION ALL
+  SELECT ddsketch(v, 0.05::float8, 16) AS s FROM (VALUES (-1.0::float8), (0.0), (1.0)) vals(v)
+)
+SELECT ddsketch_union(s, s::text::ddsketch) FROM sketches;
+
+RESET extra_float_digits;
