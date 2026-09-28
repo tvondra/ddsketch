@@ -913,6 +913,10 @@ ddsketch_aggstate_allocate(double alpha, int maxbuckets, int nbuckets)
 	Size				len;
 	ddsketch_aggstate_t *state;
 
+	/* should have been enforced by the caller */
+	Assert((maxbuckets >= MIN_SKETCH_BUCKETS) && (maxbuckets <= MAX_SKETCH_BUCKETS));
+	Assert((nbuckets >= 0) && (nbuckets <= maxbuckets));
+
 	/*
 	 * We allocate a single chunk for the struct including percentiles and
 	 * buckets.
