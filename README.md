@@ -428,6 +428,14 @@ SELECT ddsketch_sum(
 
 ## Incremental API
 
+All `ddsketch_add` overloads default `alpha` and `nbuckets` to `NULL`.
+Existing sketches retain their own parameters. To initialize a NULL sketch
+with non-NULL observations, supply both parameters explicitly:
+
+```sql
+SELECT ddsketch_add(NULL::ddsketch, 1.0, 0.05, 1024);
+```
+
 ### `ddsketch_add(sketch ddsketch, value double precision) -> ddsketch`
 
 Performs incremental update of the sketch by adding a single value.
@@ -442,6 +450,25 @@ UPDATE t SET d = ddsketch_add(d, random());
 
 - `sketch` - ddsketch to update
 - `value` - value to add to the sketch
+- `alpha` - accuracy, required only when creating a sketch from NULL
+- `nbuckets` - capacity, required only when creating a sketch from NULL
+
+
+### `ddsketch_add(sketch ddsketch, value double precision, count bigint) -> ddsketch`
+
+Adds a value with an explicit number of occurrences.
+
+#### Synopsis
+
+```sql
+UPDATE t SET d = ddsketch_add(d, 2.0, 100::bigint);
+```
+
+#### Parameters
+
+- `sketch` - sketch to update
+- `value` - value to add to the sketch
+- `count` - positive number of occurrences; NULL is treated as one
 - `alpha` - accuracy, required only when creating a sketch from NULL
 - `nbuckets` - capacity, required only when creating a sketch from NULL
 
