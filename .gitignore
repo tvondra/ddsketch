@@ -5,3 +5,5 @@ results/
 regression.diffs
 regression.out
 latest-changes.md
+/fuzz_ddsketch_in
+/fuzz_ddsketch_recv
