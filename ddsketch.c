@@ -3204,3 +3204,45 @@ ddsketch_sketch_avg(PG_FUNCTION_ARGS)
 
 	PG_RETURN_NULL();
 }
+
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+
+/*
+ * Functions called by the libFuzzer harnesses (see FUZZING.md). The macro is
+ * defined only when building the fuzzers, so these are not included in the
+ * regular build.
+ *
+ * The wrappers call an input function, and if it accepts the input, add some
+ * values to the digest and compact it. So the fuzzers check not only that
+ * the parsing is safe, but also that the accepted digests are safe to use.
+ */
+Datum ddsketch_in_fuzz(PG_FUNCTION_ARGS);
+Datum ddsketch_recv_fuzz(PG_FUNCTION_ARGS);
+
+static Datum
+ddsketch_fuzz_use_digest(Datum datum)
+{
+	ddsketch_aggstate_t *state;
+	int			i;
+
+	state = ddsketch_sketch_to_aggstate((ddsketch_t *) DatumGetPointer(datum));
+
+	for (i = 0; i < 1000; i++)
+		ddsketch_add(state, i / 1000.0, 1);
+
+	return PointerGetDatum(ddsketch_aggstate_to_ddsketch(state));
+}
+
+Datum
+ddsketch_in_fuzz(PG_FUNCTION_ARGS)
+{
+	return ddsketch_fuzz_use_digest(ddsketch_in(fcinfo));
+}
+
+Datum
+ddsketch_recv_fuzz(PG_FUNCTION_ARGS)
+{
+	return ddsketch_fuzz_use_digest(ddsketch_recv(fcinfo));
+}
+
+#endif							/* FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION */

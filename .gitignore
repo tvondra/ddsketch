@@ -5,3 +5,14 @@ results/
 regression.diffs
 regression.out
 latest-changes.md
+# fuzzing (see FUZZING.md)
+/fuzz_ddsketch_in
+/fuzz_ddsketch_recv
+/fuzz_backend.rsp
+/fuzz-out/
+/fuzz-*.log
+/crash-*
+/leak-*
+/oom-*
+/slow-unit-*
+/timeout-*
