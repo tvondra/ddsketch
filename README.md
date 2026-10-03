@@ -37,6 +37,7 @@ implements neither procedure: it never collapses buckets (see Notes).
 * [Trimmed statistics](#trimmed-statistics)
 * [Functions](#functions)
 * [Notes](#notes)
+* [Security](#security)
 * [License](#license)
 
 
@@ -678,6 +679,30 @@ With constant configuration, bucket counts and quantile estimates do not
 depend on input order or parallel worker assignment. This implementation
 does not collapse buckets: it reports an error if the capacity is
 exceeded, subject to the intermediate merge limits described above.
+
+
+Security
+--------
+
+If you believe you have found a security vulnerability in this repository,
+please report it using [this form](https://github.com/tvondra/ddsketch/security/advisories/new)
+[5] of this GitHub project. This creates a private communication channel
+between the reporter and the maintainers.
+
+If you are absolutely unable to or have strong reasons not to use GitHub's
+vulnerability reporting workflow, please reach out to the maintainer at
+[tomas@vondra.me](mailto:tomas@vondra.me).
+
+Notes:
+
+* The code assumes digests stored on-disk are valid and not corrupted.
+  If the suspected vulnerability requires a corrupted digest, without a way
+  to create such digests (using the current version), it's not a security
+  issue. This is in line with general assumptions in the Postgres code.
+
+* A valid vulnerability must not require superuser privileges. A superuser
+  can do almost anything (ultimately can read/write memory) and does not
+  need to bother with vulnerabilities.
 
 
 License
