@@ -7,7 +7,7 @@
 > may change and so on.
 
 This PostgreSQL extension implements ddsketch, a data structure for on-line
-accumulation of quantiles, as described in a paper
+accumulation of quantiles, as described in a paper [1]
 
     DDSketch: A Fast and Fully-Mergeable Quantile Sketch with
     Relative-Error Guarantees, Charles Masson, Jee E. Rim, Homin K. Lee,
@@ -23,7 +23,8 @@ a more elaborate procedure when collapsing buckets
     Morleo; https://arxiv.org/abs/2004.08604
 
 This allows providing formal accuracy guarantees even for sketches with
-collapsed buckets, which is not possible for ddsketch.
+collapsed buckets, which is not possible for ddsketch. This extension
+implements neither procedure: it never collapses buckets (see Notes).
 
 
 ## Basic usage
@@ -68,6 +69,19 @@ All functions building ddsketch summaries accept an `alpha` parameter
 that bounds relative error in quantile values, not error in the CDF.
 It limits logarithmic bucket width, so lower values generally require
 more buckets. Inverse-rank estimates have no corresponding error bound.
+The `alpha` value must be between 0.0001 and 0.1.
+
+The estimated quantile is the "lower" quantile, i.e. the value at rank
+`floor(q * (n - 1))` (counting from 0) in the sorted data, and the error
+bound is relative to that value. There is no interpolation between values,
+so for small data sets or data with large gaps between values the estimate
+may differ from `percentile_cont` or `percentile_disc` by much more than
+`alpha`.
+
+The `nbuckets` parameter is the capacity of the sketch, i.e. the maximum
+number of non-empty buckets (not counting the zero bucket). Only non-empty
+buckets are stored, and adding a value that would need more buckets fails
+with a "bucket overflow" error. It must be between 16 and 32768.
 
 Inputs must be finite and their magnitude must not exceed `max_indexable`
 reported by `ddsketch_info(alpha)`. Values with magnitude at or below
@@ -84,7 +98,7 @@ transparent compression, which may reduce the on-disk size.
 
 The extension also provides a `ddsketch` data type, which makes it possible
 to precompute sketches for subsets of data, and then quickly combine those
-"partial" sketched into a sketch representing the whole data set. Those
+"partial" sketches into a sketch representing the whole data set. Those
 prebuilt sketches should be much smaller compared to the original data set,
 allowing significantly faster response times.
 
@@ -92,7 +106,7 @@ To compute the `ddsketch` use `ddsketch` aggregate function. The sketches can
 then be stored on disk and later summarized using the `ddsketch_percentile`
 functions (with `ddsketch` as the first argument).
 
-* `ddsketch(digest ddsketch) -> ddsketch`
+* `ddsketch(sketch ddsketch) -> ddsketch`
 
 So for example you may do this:
 
@@ -172,19 +186,21 @@ groups may use more space as sketches than as raw values.
 
 When dealing with data sets with a lot of redundancy (values repeating
 many times), it may be more efficient to partially pre-aggregate the data
-and use an aggregate function that allow specifying the number of
+and use an aggregate function that allows specifying the number of
 occurrences for each value. This reduces the number of SQL-function calls.
 
 The weighted aggregate accepts the count explicitly:
 
 * `ddsketch(value double precision, count bigint, alpha double precision, nbuckets int)`
 
+The count must be positive; a NULL count is treated as a single occurrence.
+
 
 ## Incremental updates
 
 An existing ddsketch may be updated incrementally, either by adding a single
 value, or by merging-in a whole ddsketch. For example, it's possible to add
-1000 random values to the ddsketch like this:
+1000 random values to the sketches in table `p` like this:
 
 ```sql
 DO LANGUAGE plpgsql $$
@@ -192,7 +208,7 @@ DECLARE
   r record;
 BEGIN
   FOR r IN (SELECT random() AS v FROM generate_series(1,1000)) LOOP
-    UPDATE t SET d = ddsketch_add(d, r.v);
+    UPDATE p SET d = ddsketch_add(d, r.v);
   END LOOP;
 END $$;
 ```
@@ -205,10 +221,10 @@ or a ddsketch.
 ```sql
 DO LANGUAGE plpgsql $$
 DECLARE
-  a double precision[];
+  vals double precision[];
 BEGIN
-  SELECT array_agg(random()) INTO a FROM generate_series(1,1000);
-  UPDATE t SET d = ddsketch_add(d, a);
+  SELECT array_agg(random()) INTO vals FROM generate_series(1,1000);
+  UPDATE p SET d = ddsketch_add(d, vals);
 END $$;
 ```
 
@@ -221,7 +237,7 @@ DECLARE
   r record;
 BEGIN
   FOR r IN (SELECT mod(i,3) AS a, ddsketch(random(), 0.05, 1024) AS d FROM generate_series(1,1000) s(i) GROUP BY mod(i,3)) LOOP
-    UPDATE t SET d = ddsketch_union(d, r.d);
+    UPDATE p SET d = ddsketch_union(d, r.d);
   END LOOP;
 END $$;
 ```
@@ -232,11 +248,16 @@ END $$;
 The extension provides trimmed (truncated) average and sum functions for
 precomputed sketches. Build a sketch with `ddsketch` before calling them.
 
-* `ddsketch_sum(sketch ddsketch, low double precision, high double precision)`
+* `ddsketch_sum(sketch ddsketch, low double precision = 0.0, high double precision = 1.0)`
 
-* `ddsketch_avg(sketch ddsketch, low double precision, high double precision)`
+* `ddsketch_avg(sketch ddsketch, low double precision = 0.0, high double precision = 1.0)`
 
-The `low` and `high` parameters specify where to truncate the data.
+The `low` and `high` parameters specify where to truncate the data. Both
+must be in [0, 1], with `low` not greater than `high`. With the default
+bounds, the functions estimate the sum and average of all values. In SQL,
+the parameters are named `p_low` and `p_high`, so a single bound may be
+specified using named notation, e.g. `ddsketch_avg(d, p_high => 0.9)`.
+
 Equal bounds select no observations, so both functions return `NULL`.
 For a nonempty interval, the lower rank is rounded down and the upper
 rank is rounded up to whole observations.
@@ -246,7 +267,8 @@ rank is rounded up to whole observations.
 
 ### `ddsketch(value double precision, alpha double precision, nbuckets int) -> ddsketch`
 
-Computes a ddsketch with the specified accuracy.
+Computes a ddsketch with the specified accuracy. NULL values are skipped,
+and the result is NULL if there are no non-NULL values.
 
 #### Synopsis
 
@@ -258,7 +280,7 @@ SELECT ddsketch(t.c, 0.05, 1024) FROM t
 
 - `value` - values to aggregate
 - `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
+- `nbuckets` - capacity of the sketch (maximum number of non-empty buckets)
 
 
 ### `ddsketch(value double precision, count bigint, alpha double precision, nbuckets int) -> ddsketch`
@@ -269,20 +291,25 @@ as many occurrences as determined by the count parameter.
 #### Synopsis
 
 ```sql
-SELECT ddsketch(t.c, t.a, 0.05, 1024) FROM t
+SELECT ddsketch(s.a, s.n, 0.05, 1024) FROM (
+    SELECT t.a, count(*) AS n FROM t GROUP BY t.a
+) s
 ```
 
 #### Parameters
 
 - `value` - values to aggregate
-- `count` - number of occurrences of the value
+- `count` - positive number of occurrences of the value; NULL is treated
+  as one
 - `alpha` - accuracy of the sketch
-- `nbuckets` - number of buckets in the sketch
+- `nbuckets` - capacity of the sketch (maximum number of non-empty buckets)
 
 
 ### `ddsketch(sketch ddsketch) -> ddsketch`
 
-Computes ddsketch by combining the input sketches.
+Computes ddsketch by combining the input sketches. All the sketches must
+use the same `alpha`, and the result uses the largest capacity (see
+`ddsketch_union`).
 
 #### Synopsis
 
@@ -312,11 +339,11 @@ SELECT ddsketch_percentile(d, 0.99) FROM (
 
 #### Parameters
 
-- `sketch` - ddsketch to aggregate and process
+- `sketch` - sketch to process
 - `percentile` - value in [0, 1] specifying the percentile
 
 
-### `ddsketch_percentile(sketch ddsketch, percentile double precision[]) -> double precision[]`
+### `ddsketch_percentile(sketch ddsketch, percentiles double precision[]) -> double precision[]`
 
 Computes requested percentiles from the pre-computed ddsketch.
 
@@ -330,13 +357,18 @@ SELECT ddsketch_percentile(d, ARRAY[0.95, 0.99]) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to aggregate and process
-- `percentile` - values in [0, 1] specifying the percentiles
+- `sketch` - sketch to process
+- `percentiles` - values in [0, 1] specifying the percentiles (a non-empty
+  one-dimensional array without NULLs)
 
 
 ### `ddsketch_percentile_of(sketch ddsketch, hypothetical_value double precision) -> double precision`
 
 Computes relative rank of a hypothetical value, using a pre-computed sketch.
+The estimate is the fraction of values in lower buckets, plus half the values
+in the bucket containing the hypothetical value (all of them for the zero
+bucket). `-Infinity` produces 0, `Infinity` produces 1 and `NaN` produces
+`NaN`.
 
 #### Synopsis
 
@@ -348,11 +380,11 @@ SELECT ddsketch_percentile_of(d, 349834.1) FROM (
 
 #### Parameters
 
-- `sketch` - ddsketch to aggregate and process
+- `sketch` - sketch to process
 - `hypothetical_value` - hypothetical value
 
 
-### `ddsketch_percentile_of(sketch ddsketch, hypothetical_value double precision[]) -> double precision[]`
+### `ddsketch_percentile_of(sketch ddsketch, hypothetical_values double precision[]) -> double precision[]`
 
 Computes relative ranks of hypothetical values, using a pre-computed sketch.
 
@@ -366,8 +398,9 @@ SELECT ddsketch_percentile_of(d, ARRAY[438.256, 349834.1]) FROM (
 
 #### Parameters
 
-- `sketch` - ddsketch to aggregate and process
-- `hypothetical_value` - hypothetical values
+- `sketch` - sketch to process
+- `hypothetical_values` - hypothetical values (a non-empty one-dimensional
+  array without NULLs)
 
 
 ### `ddsketch_count(sketch ddsketch) -> bigint`
@@ -385,7 +418,7 @@ SELECT ddsketch_count(d) FROM (
 
 ## Trimmed Aggregates
 
-### `ddsketch_avg(sketch ddsketch, low double precision, high double precision) -> double precision`
+### `ddsketch_avg(sketch ddsketch, low double precision = 0.0, high double precision = 1.0) -> double precision`
 
 Computes trimmed average of values, discarding values at the low and high end.
 The `low` and `high` values specify which part of the sample should be
@@ -402,12 +435,12 @@ SELECT ddsketch_avg(d, 0.1, 0.9) FROM (
 
 #### Parameters
 
-- `sketch` - ddsketch to aggregate and process
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
+- `sketch` - sketch to process
+- `low` - low threshold percentile (values below are discarded), 0.0 by default
+- `high` - high threshold percentile (values above are discarded), 1.0 by default
 
 
-### `ddsketch_sum(sketch ddsketch, low double precision, high double precision) -> double precision`
+### `ddsketch_sum(sketch ddsketch, low double precision = 0.0, high double precision = 1.0) -> double precision`
 
 Calculates trimmed sum from a single sketch, without aggregation. The `low`
 and `high` values specify which part of the sample should be included in the
@@ -425,8 +458,8 @@ SELECT ddsketch_sum(
 #### Parameters
 
 - `sketch` - ddsketch to calculate trimmed sum for
-- `low` - low threshold percentile (values below are discarded)
-- `high` - high threshold percentile (values above are discarded)
+- `low` - low threshold percentile (values below are discarded), 0.0 by default
+- `high` - high threshold percentile (values above are discarded), 1.0 by default
 
 
 ## Incremental API
@@ -439,14 +472,14 @@ with non-NULL observations, supply both parameters explicitly:
 SELECT ddsketch_add(NULL::ddsketch, 1.0, 0.05, 1024);
 ```
 
-### `ddsketch_add(sketch ddsketch, value double precision) -> ddsketch`
+### `ddsketch_add(sketch ddsketch, value double precision, alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
 
 Performs incremental update of the sketch by adding a single value.
 
 #### Synopsis
 
 ```sql
-UPDATE t SET d = ddsketch_add(d, random());
+UPDATE p SET d = ddsketch_add(d, random());
 ```
 
 #### Parameters
@@ -457,14 +490,19 @@ UPDATE t SET d = ddsketch_add(d, random());
 - `nbuckets` - capacity, required only when creating a sketch from NULL
 
 
-### `ddsketch_add(sketch ddsketch, value double precision, count bigint) -> ddsketch`
+### `ddsketch_add(sketch ddsketch, value double precision, count bigint, alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
 
 Adds a value with an explicit number of occurrences.
+
+The count has to be a `bigint`. For an `integer` argument (e.g. a plain
+literal like `100`), PostgreSQL picks the overload with `alpha` instead,
+so `ddsketch_add(d, 2.0, 100)` adds the value only once. Use a cast, as in
+the synopsis, or named notation (`p_count => 100`).
 
 #### Synopsis
 
 ```sql
-UPDATE t SET d = ddsketch_add(d, 2.0, 100::bigint);
+UPDATE p SET d = ddsketch_add(d, 2.0, 100::bigint);
 ```
 
 #### Parameters
@@ -476,20 +514,21 @@ UPDATE t SET d = ddsketch_add(d, 2.0, 100::bigint);
 - `nbuckets` - capacity, required only when creating a sketch from NULL
 
 
-### `ddsketch_add(sketch ddsketch, value double precision[]) -> ddsketch`
+### `ddsketch_add(sketch ddsketch, values double precision[], alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
 
 Performs incremental update of the sketch by adding values from an array.
 
 #### Synopsis
 
 ```sql
-UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
+UPDATE p SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
 ```
 
 #### Parameters
 
 - `sketch` - ddsketch to update
-- `value` - array of values to add to the sketch
+- `values` - array of values to add to the sketch (non-empty, one-dimensional,
+  without NULLs)
 - `alpha` - accuracy, required only when creating a sketch from NULL
 - `nbuckets` - capacity, required only when creating a sketch from NULL
 
@@ -497,6 +536,7 @@ UPDATE t SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
 ### `ddsketch_union(sketch1 ddsketch, sketch2 ddsketch) -> ddsketch`
 
 Performs incremental update of the sketch by merging-in another sketch.
+If one of the sketches is NULL, the other one is returned.
 
 Both sketches must use the same `alpha`. The result uses the larger input
 capacity, including sketch aggregation and parallel combination. It may
@@ -510,13 +550,75 @@ capacities when aggregating a sequence of sketches.
 
 ```sql
 WITH x AS (SELECT ddsketch(random(), 0.05, 1024) AS d FROM generate_series(1,1000))
-UPDATE t SET d = ddsketch_union(t.d, x.d) FROM x;
+UPDATE p SET d = ddsketch_union(p.d, x.d) FROM x;
 ```
 
 #### Parameters
 
 - `sketch1` - first sketch to merge
 - `sketch2` - second sketch to merge
+
+
+## Introspection Functions
+
+### `ddsketch_info(sketch ddsketch) -> record`
+
+Returns information about the sketch: `bytes` (size of the sketch, before
+compression), `flags` (reserved, currently 0), `alpha`, `count` (number of
+values), `zero_count` (number of values in the zero bucket), `max_buckets`
+(capacity), `negative_buckets` and `positive_buckets` (number of non-empty
+buckets), and `min_indexable` and `max_indexable` (see Accuracy).
+
+#### Synopsis
+
+```sql
+SELECT * FROM ddsketch_info((SELECT ddsketch(t.c, 0.05, 1024) FROM t));
+```
+
+
+### `ddsketch_info(alpha double precision) -> record`
+
+Returns `min_indexable` and `max_indexable` for a given `alpha`, i.e. the
+range of magnitudes a sketch can index (outside the zero bucket).
+
+#### Synopsis
+
+```sql
+SELECT * FROM ddsketch_info(0.05);
+```
+
+
+### `ddsketch_buckets(sketch ddsketch) -> setof record`
+
+Returns one row for each non-empty bucket of the sketch, ordered by values:
+`index` (row number), `bucket_index`, `bucket_lower` and `bucket_upper`
+(bucket boundaries, negative for buckets with negative values),
+`bucket_length` (width of the bucket) and `bucket_count` (number of values
+in the bucket). The zero bucket is not included, its count is reported as
+`zero_count` by `ddsketch_info`.
+
+#### Synopsis
+
+```sql
+SELECT * FROM ddsketch_buckets((SELECT ddsketch(t.c, 0.05, 1024) FROM t));
+```
+
+
+### `ddsketch_buckets(alpha double precision, min_value double precision, max_value double precision) -> setof record`
+
+Returns boundaries of the buckets covering values from `min_value` to
+`max_value` for a given `alpha`: `index` (row number), `bucket_index`,
+`bucket_min` and `bucket_max`. The bounds must be finite, within the
+indexable range, and `min_value` must not be greater than `max_value`.
+The zero bucket is not included, so a range spanning zero returns all
+buckets down to `min_indexable` on both sides (thousands or even millions
+of rows, depending on `alpha`).
+
+#### Synopsis
+
+```sql
+SELECT * FROM ddsketch_buckets(0.05, 1.0, 1000.0);
+```
 
 
 Notes
