@@ -286,6 +286,23 @@ The extension then has to be created in each database by a superuser:
 CREATE EXTENSION ddsketch;
 ```
 
+The extension is also available on [PGXN](https://pgxn.org/dist/ddsketch/),
+and may be installed using the
+[PGXN client](https://pgxn.github.io/pgxnclient/) (e.g. the `pgxnclient`
+package on Debian and Ubuntu), which downloads, builds and installs it:
+
+```sh
+pgxn install [--unstable] ddsketch
+```
+By default, the client installs only stable releases, and the extension
+is not released as stable yet (see the warning at the top), hence the
+`--unstable` option. The build has the same requirements as above. The
+client also uses the `pg_config` found in `PATH`, and a different
+installation may be specified using `--pg_config /path/to/pg_config`. If
+installing requires root privileges, add `--sudo` after the extension
+name (e.g. `pgxn install --unstable ddsketch --sudo`), to run just the
+installation step using `sudo`.
+
 The regression tests are executed by `make installcheck`, against a
 running server with the extension installed (the server is specified by
 the usual libpq environment variables, e.g. `PGHOST` and `PGPORT`). The
