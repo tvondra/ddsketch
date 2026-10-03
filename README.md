@@ -263,6 +263,37 @@ For a nonempty interval, the lower rank is rounded down and the upper
 rank is rounded up to whole observations.
 
 
+## Installation
+
+The extension supports PostgreSQL 11 and newer, and is built using PGXS.
+That requires the server development files (e.g. the
+`postgresql-server-dev-NN` package on Debian and Ubuntu). To build and
+install the extension, run
+
+```sh
+make
+make install
+```
+
+This uses the PostgreSQL installation with `pg_config` found in `PATH`.
+A different installation may be specified using `PG_CONFIG`, e.g.
+`make PG_CONFIG=/path/to/pg_config install`. Installing usually requires
+root privileges (e.g. `sudo make install`).
+
+The extension then has to be created in each database by a superuser:
+
+```sql
+CREATE EXTENSION ddsketch;
+```
+
+The regression tests are executed by `make installcheck`, against a
+running server with the extension installed (the server is specified by
+the usual libpq environment variables, e.g. `PGHOST` and `PGPORT`). The
+tests have to connect as a superuser, and require the `lower_quantile`
+extension (e.g. `pgxn install lower_quantile`), which calculates exact
+results for comparison.
+
+
 ## Aggregate Functions
 
 ### `ddsketch(value double precision, alpha double precision, nbuckets int) -> ddsketch`
