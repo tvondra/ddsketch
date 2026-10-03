@@ -27,6 +27,19 @@ collapsed buckets, which is not possible for ddsketch. This extension
 implements neither procedure: it never collapses buckets (see Notes).
 
 
+## Contents
+
+* [Basic usage](#basic-usage)
+* [Accuracy](#accuracy)
+* [Advanced usage](#advanced-usage)
+* [Pre-aggregated data](#pre-aggregated-data)
+* [Incremental updates](#incremental-updates)
+* [Trimmed statistics](#trimmed-statistics)
+* [Functions](#functions)
+* [Notes](#notes)
+* [License](#license)
+
+
 ## Basic usage
 
 The extension provides several aggregate functions, building the `ddsketch`
@@ -243,7 +256,7 @@ END $$;
 ```
 
 
-## Trimmed aggregates
+## Trimmed statistics
 
 The extension provides trimmed (truncated) average and sum functions for
 precomputed sketches. Build a sketch with `ddsketch` before calling them.
@@ -311,7 +324,7 @@ extension (e.g. `pgxn install lower_quantile`), which calculates exact
 results for comparison.
 
 
-## Aggregate Functions
+## Functions
 
 ### `ddsketch(value double precision, alpha double precision, nbuckets int) -> ddsketch`
 
@@ -370,8 +383,6 @@ SELECT ddsketch(d) FROM tmp
 
 - `sketch` - sketch to merge into the result
 
-
-## Scalar Functions
 
 ### `ddsketch_percentile(sketch ddsketch, percentile double precision) -> double precision`
 
@@ -464,8 +475,6 @@ SELECT ddsketch_count(d) FROM (
 ```
 
 
-## Trimmed Aggregates
-
 ### `ddsketch_avg(sketch ddsketch, low double precision = 0.0, high double precision = 1.0) -> double precision`
 
 Computes trimmed average of values, discarding values at the low and high end.
@@ -509,16 +518,6 @@ SELECT ddsketch_sum(
 - `low` - low threshold percentile (values below are discarded), 0.0 by default
 - `high` - high threshold percentile (values above are discarded), 1.0 by default
 
-
-## Incremental API
-
-All `ddsketch_add` overloads default `alpha` and `nbuckets` to `NULL`.
-Existing sketches retain their own parameters. To initialize a NULL sketch
-with non-NULL observations, supply both parameters explicitly:
-
-```sql
-SELECT ddsketch_add(NULL::ddsketch, 1.0, 0.05, 1024);
-```
 
 ### `ddsketch_add(sketch ddsketch, value double precision, alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
 
@@ -606,8 +605,6 @@ UPDATE p SET d = ddsketch_union(p.d, x.d) FROM x;
 - `sketch1` - first sketch to merge
 - `sketch2` - second sketch to merge
 
-
-## Introspection Functions
 
 ### `ddsketch_info(sketch ddsketch) -> record`
 
