@@ -4,7 +4,7 @@
    "description": "This PostgreSQL extension implements ddsketch, a data structure for on-line accumulation of quantiles. The algorithm is very friendly to parallel programs, fully mergeable, etc.",
    "version": "2.0.0-dev",
    "maintainer": "Tomas Vondra <tomas@vondra.me>",
-   "license": "bsd",
+   "license": "postgresql",
    "prereqs": {
       "runtime": {
          "requires": {

@@ -637,8 +637,8 @@ exceeded, subject to the intermediate merge limits described above.
 
 License
 -------
-This software is distributed under the terms of PostgreSQL license.
-See LICENSE or http://www.opensource.org/licenses/bsd-license.php for
+This software is distributed under the terms of the PostgreSQL license.
+See LICENSE or https://www.postgresql.org/about/licence/ for
 more details.
 
 
