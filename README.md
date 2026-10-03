@@ -327,7 +327,7 @@ results for comparison.
 
 ## Functions
 
-### `ddsketch(value double precision, alpha double precision, nbuckets int) -> ddsketch`
+### `ddsketch(value, alpha, max_buckets)`
 
 Computes a ddsketch with the specified accuracy. NULL values are skipped,
 and the result is NULL if there are no non-NULL values.
@@ -340,12 +340,16 @@ SELECT ddsketch(t.c, 0.05, 1024) FROM t
 
 #### Parameters
 
-- `value` - values to aggregate
-- `alpha` - accuracy of the sketch
-- `nbuckets` - capacity of the sketch (maximum number of non-empty buckets)
+- `value` (`double precision`) - values to aggregate
+- `alpha` (`double precision`) - accuracy of the sketch
+- `max_buckets` (`int`) - capacity of the sketch (maximum number of non-empty buckets)
+
+#### Returns
+
+- sketch (`ddsketch` type) built on the input values
 
 
-### `ddsketch(value double precision, count bigint, alpha double precision, nbuckets int) -> ddsketch`
+### `ddsketch(value, count, alpha, max_buckets)`
 
 Computes a ddsketch with the specified accuracy. The values are added with
 as many occurrences as determined by the count parameter.
@@ -360,14 +364,18 @@ SELECT ddsketch(s.a, s.n, 0.05, 1024) FROM (
 
 #### Parameters
 
-- `value` - values to aggregate
-- `count` - positive number of occurrences of the value; NULL is treated
+- `value` (`double precision`) - values to aggregate
+- `count` (`bigint`) - positive number of occurrences of the value; NULL is treated
   as one
-- `alpha` - accuracy of the sketch
-- `nbuckets` - capacity of the sketch (maximum number of non-empty buckets)
+- `alpha` (`double precision`) - accuracy of the sketch
+- `max_buckets` (`int`) - capacity of the sketch (maximum number of non-empty buckets)
+
+#### Returns
+
+- sketch (`ddsketch` type) built on the input values
 
 
-### `ddsketch(sketch ddsketch) -> ddsketch`
+### `ddsketch(sketch)`
 
 Computes ddsketch by combining the input sketches. All the sketches must
 use the same `alpha`, and the result uses the largest capacity (see
@@ -382,10 +390,14 @@ SELECT ddsketch(d) FROM tmp
 
 #### Parameters
 
-- `sketch` - sketch to merge into the result
+- `sketch` (`ddsketch`) - sketch to merge into the result
+
+#### Returns
+
+- sketch (`ddsketch` type) built from the input sketches
 
 
-### `ddsketch_percentile(sketch ddsketch, percentile double precision) -> double precision`
+### `ddsketch_percentile(sketch, percentile)`
 
 Computes requested percentile from the pre-computed ddsketch.
 
@@ -399,11 +411,15 @@ SELECT ddsketch_percentile(d, 0.99) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to process
-- `percentile` - value in [0, 1] specifying the percentile
+- `sketch` (`ddsketch`) - sketch to process
+- `percentile` (`double precision`) - value in [0, 1] specifying the percentile
+
+#### Return value
+
+- percentile estimate (`double precision` type)
 
 
-### `ddsketch_percentile(sketch ddsketch, percentiles double precision[]) -> double precision[]`
+### `ddsketch_percentile(sketch, percentiles)`
 
 Computes requested percentiles from the pre-computed ddsketch.
 
@@ -417,12 +433,16 @@ SELECT ddsketch_percentile(d, ARRAY[0.95, 0.99]) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to process
-- `percentiles` - values in [0, 1] specifying the percentiles (a non-empty
+- `sketch` (`ddsketch`) - sketch to process
+- `percentiles` (`double precision[]`) - values in [0, 1] specifying the percentiles (a non-empty
   one-dimensional array without NULLs)
 
+#### Return value
 
-### `ddsketch_percentile_of(sketch ddsketch, hypothetical_value double precision) -> double precision`
+- array of percentile estimates (`double precision[]` type)
+
+
+### `ddsketch_percentile_of(sketch, hypothetical_value)`
 
 Computes relative rank of a hypothetical value, using a pre-computed sketch.
 The estimate is the fraction of values in lower buckets, plus half the values
@@ -440,11 +460,15 @@ SELECT ddsketch_percentile_of(d, 349834.1) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to process
-- `hypothetical_value` - hypothetical value
+- `sketch` (`ddsketch`) - sketch to process
+- `hypothetical_value` (`double precision`) - hypothetical value
+
+#### Return value
+
+- relative rank of a value (`double precision` type)
 
 
-### `ddsketch_percentile_of(sketch ddsketch, hypothetical_values double precision[]) -> double precision[]`
+### `ddsketch_percentile_of(ddsketch, hypothetical_values)`
 
 Computes relative ranks of hypothetical values, using a pre-computed sketch.
 
@@ -458,12 +482,16 @@ SELECT ddsketch_percentile_of(d, ARRAY[438.256, 349834.1]) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to process
-- `hypothetical_values` - hypothetical values (a non-empty one-dimensional
+- `sketch` (`ddsketch`) - sketch to process
+- `hypothetical_values` (`double precision[]`) - hypothetical values (a non-empty one-dimensional
   array without NULLs)
 
+#### Return value
 
-### `ddsketch_count(sketch ddsketch) -> bigint`
+- array of relative rank estimates (`double precision[]` type)
+
+
+### `ddsketch_count(sketch)`
 
 Returns number of items represented by the sketch.
 
@@ -475,8 +503,16 @@ SELECT ddsketch_count(d) FROM (
 ) foo
 ```
 
+#### Parameters
 
-### `ddsketch_avg(sketch ddsketch, low double precision = 0.0, high double precision = 1.0) -> double precision`
+- `sketch` (`ddsketch`) - sketch to inspect
+
+#### Return value
+
+- number of elements (`bigint` type) added to the sketch
+
+
+### `ddsketch_avg(sketch, low, high)`
 
 Computes trimmed average of values, discarding values at the low and high end.
 The `low` and `high` values specify which part of the sample should be
@@ -493,12 +529,16 @@ SELECT ddsketch_avg(d, 0.1, 0.9) FROM (
 
 #### Parameters
 
-- `sketch` - sketch to process
-- `low` - low threshold percentile (values below are discarded), 0.0 by default
-- `high` - high threshold percentile (values above are discarded), 1.0 by default
+- `sketch` (`ddsketch`) - sketch to process
+- `low` (`double precision`) - low threshold percentile (values below are discarded), 0.0 by default
+- `high` (`double precision`) - high threshold percentile (values above are discarded), 1.0 by default
+
+#### Return value
+
+- the average value (`double precision`) estimated from the sketch
 
 
-### `ddsketch_sum(sketch ddsketch, low double precision = 0.0, high double precision = 1.0) -> double precision`
+### `ddsketch_sum(sketch, low, high)`
 
 Calculates trimmed sum from a single sketch, without aggregation. The `low`
 and `high` values specify which part of the sample should be included in the
@@ -515,12 +555,16 @@ SELECT ddsketch_sum(
 
 #### Parameters
 
-- `sketch` - ddsketch to calculate trimmed sum for
-- `low` - low threshold percentile (values below are discarded), 0.0 by default
-- `high` - high threshold percentile (values above are discarded), 1.0 by default
+- `sketch` (`ddsketch`) - sketch to process
+- `low` (`double precision`) - low threshold percentile (values below are discarded), 0.0 by default
+- `high` (`double precision`) - high threshold percentile (values above are discarded), 1.0 by default
+
+#### Return value
+
+- the sum value (`double precision`) estimated from the sketch
 
 
-### `ddsketch_add(sketch ddsketch, value double precision, alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
+### `ddsketch_add(sketch, value, alpha, max_buckets)`
 
 Performs incremental update of the sketch by adding a single value.
 
@@ -532,13 +576,17 @@ UPDATE p SET d = ddsketch_add(d, random());
 
 #### Parameters
 
-- `sketch` - ddsketch to update
-- `value` - value to add to the sketch
-- `alpha` - accuracy, required only when creating a sketch from NULL
-- `nbuckets` - capacity, required only when creating a sketch from NULL
+- `sketch` (`ddsketch`) - ddsketch to update
+- `value` (`double precision`) - value to add to the sketch
+- `alpha` (`double precision`) - accuracy, required only when creating a sketch from NULL
+- `max_buckets` - capacity, required only when creating a sketch from NULL
+
+#### Return value
+
+- a sketch (`ddsketch`) with the value added
 
 
-### `ddsketch_add(sketch ddsketch, value double precision, count bigint, alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
+### `ddsketch_add(sketch, value, count, alpha, max_buckets)`
 
 Adds a value with an explicit number of occurrences.
 
@@ -555,14 +603,18 @@ UPDATE p SET d = ddsketch_add(d, 2.0, 100::bigint);
 
 #### Parameters
 
-- `sketch` - sketch to update
-- `value` - value to add to the sketch
-- `count` - positive number of occurrences; NULL is treated as one
-- `alpha` - accuracy, required only when creating a sketch from NULL
-- `nbuckets` - capacity, required only when creating a sketch from NULL
+- `sketch` (`ddsketch`) - sketch to update
+- `value` (`double precision`) - value to add to the sketch
+- `count` (`bigint`) - positive number of occurrences; NULL is treated as one
+- `alpha` (`double precision`) - accuracy, required only when creating a sketch from NULL
+- `max_buckets` (`int`) - capacity, required only when creating a sketch from NULL
+
+#### Return value
+
+- a sketch (`ddsketch`) with the value added
 
 
-### `ddsketch_add(sketch ddsketch, values double precision[], alpha double precision = NULL, nbuckets int = NULL) -> ddsketch`
+### `ddsketch_add(sketch, values, alpha, max_buckes)`
 
 Performs incremental update of the sketch by adding values from an array.
 
@@ -574,14 +626,18 @@ UPDATE p SET d = ddsketch_add(d, ARRAY[random(), random(), random()]);
 
 #### Parameters
 
-- `sketch` - ddsketch to update
-- `values` - array of values to add to the sketch (non-empty, one-dimensional,
+- `sketch` (`ddsketch`) - ddsketch to update
+- `values` (`double precision[]`) - array of values to add to the sketch (non-empty, one-dimensional,
   without NULLs)
-- `alpha` - accuracy, required only when creating a sketch from NULL
-- `nbuckets` - capacity, required only when creating a sketch from NULL
+- `alpha` (`double precision`) - accuracy, required only when creating a sketch from NULL
+- `max_buckes` (`int`) - capacity, required only when creating a sketch from NULL
+
+#### Return value
+
+- a sketch (`ddsketch`) with the values added
 
 
-### `ddsketch_union(sketch1 ddsketch, sketch2 ddsketch) -> ddsketch`
+### `ddsketch_union(sketch1, sketch2)`
 
 Performs incremental update of the sketch by merging-in another sketch.
 If one of the sketches is NULL, the other one is returned.
@@ -603,11 +659,15 @@ UPDATE p SET d = ddsketch_union(p.d, x.d) FROM x;
 
 #### Parameters
 
-- `sketch1` - first sketch to merge
-- `sketch2` - second sketch to merge
+- `sketch1` (`ddsketch`) - first sketch to merge
+- `sketch2` (`ddsketch`) - second sketch to merge
+
+#### Return value
+
+- a sketch (`sketch`) representing the two input sketches merged
 
 
-### `ddsketch_info(sketch ddsketch) -> record`
+### `ddsketch_info(sketch)`
 
 Returns information about the sketch: `bytes` (size of the sketch, before
 compression), `flags` (reserved, currently 0), `alpha`, `count` (number of
@@ -621,8 +681,16 @@ buckets), and `min_indexable` and `max_indexable` (see Accuracy).
 SELECT * FROM ddsketch_info((SELECT ddsketch(t.c, 0.05, 1024) FROM t));
 ```
 
+#### Parameters
 
-### `ddsketch_info(alpha double precision) -> record`
+- `sketch` (`ddsketch`) - sketch to inspect
+
+#### Return value
+
+- a row (`record`) with various information about the sketch (see above)
+
+
+### `ddsketch_info(alpha)`
 
 Returns `min_indexable` and `max_indexable` for a given `alpha`, i.e. the
 range of magnitudes a sketch can index (outside the zero bucket).
@@ -633,8 +701,16 @@ range of magnitudes a sketch can index (outside the zero bucket).
 SELECT * FROM ddsketch_info(0.05);
 ```
 
+#### Parameters
 
-### `ddsketch_buckets(sketch ddsketch) -> setof record`
+- `alpha` (`double precision`) - accuracy for a sketch
+
+#### Return value
+
+- a row (`record`) with `min_indexable` and `max_indexable` fields
+
+
+### `ddsketch_buckets(sketch)`
 
 Returns one row for each non-empty bucket of the sketch, ordered by values:
 `index` (row number), `bucket_index`, `bucket_lower` and `bucket_upper`
@@ -649,8 +725,17 @@ in the bucket). The zero bucket is not included, its count is reported as
 SELECT * FROM ddsketch_buckets((SELECT ddsketch(t.c, 0.05, 1024) FROM t));
 ```
 
+#### Parameters
 
-### `ddsketch_buckets(alpha double precision, min_value double precision, max_value double precision) -> setof record`
+- `sketch` (`ddsketch`) - sketch to inspect
+
+#### Return value
+
+- a set of rows, with one row for each non-empty bucket (see above for the
+  attributes of each row)
+
+
+### `ddsketch_buckets(alpha, min_value, max_value)`
 
 Returns boundaries of the buckets covering values from `min_value` to
 `max_value` for a given `alpha`: `index` (row number), `bucket_index`,
@@ -665,6 +750,17 @@ of rows, depending on `alpha`).
 ```sql
 SELECT * FROM ddsketch_buckets(0.05, 1.0, 1000.0);
 ```
+
+#### Parameters
+
+- `alpha` (`double precision`) - accuracy for a sketch
+- `min_value` (`double precision`) - minimum value added to a sketch
+- `max_value` (`double precision`) - maximum value added to a sketch
+
+#### Return value
+
+- a set of rows, with one row for each possible bucket (see above for the
+  attributes of each row)
 
 
 Notes
