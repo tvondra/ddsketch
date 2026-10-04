@@ -269,9 +269,9 @@ precomputed sketches. Build a sketch with `ddsketch` before calling them.
 
 The `low` and `high` parameters specify where to truncate the data. Both
 must be in [0, 1], with `low` not greater than `high`. With the default
-bounds, the functions estimate the sum and average of all values. In SQL,
-the parameters are named `p_low` and `p_high`, so a single bound may be
-specified using named notation, e.g. `ddsketch_avg(d, p_high => 0.9)`.
+bounds, the functions estimate the sum and average of all values. A single
+bound may be specified using named notation, e.g.
+`ddsketch_avg(d, high => 0.9)`.
 
 Equal bounds select no observations, so both functions return `NULL`.
 For a nonempty interval, the lower rank is rounded down and the upper
@@ -332,6 +332,11 @@ results for comparison.
 
 Computes a ddsketch with the specified accuracy. NULL values are skipped,
 and the result is NULL if there are no non-NULL values.
+
+The `alpha` and max_buckets` values should be the same for all rows. The
+sketch is created using the values from the first row with a non-NULL value.
+With a parallel plan, partial sketches with different `alpha` values fail
+to combine with an error.
 
 #### Synopsis
 
@@ -782,7 +787,8 @@ Notes
 At the moment, the extension only supports `double precision` values, but
 it should not be very difficult to extend it to other numeric types (both
 integer and/or floating point, including `numeric`). Ultimately, it could
-support any data type with a concept of ordering and mean.
+support any data type with a concept of ordering and magnitude (needed to
+map values to the logarithmic buckets).
 
 With constant configuration, bucket counts and quantile estimates do not
 depend on input order or parallel worker assignment. This implementation
@@ -795,7 +801,7 @@ Security
 
 If you believe you have found a security vulnerability in this repository,
 please report it using [this form](https://github.com/tvondra/ddsketch/security/advisories/new)
-[5] of this GitHub project. This creates a private communication channel
+[2] of this GitHub project. This creates a private communication channel
 between the reporter and the maintainers.
 
 If you are absolutely unable to or have strong reasons not to use GitHub's
@@ -804,9 +810,9 @@ vulnerability reporting workflow, please reach out to the maintainer at
 
 Notes:
 
-* The code assumes digests stored on-disk are valid and not corrupted.
-  If the suspected vulnerability requires a corrupted digest, without a way
-  to create such digests (using the current version), it's not a security
+* The code assumes sketches stored on-disk are valid and not corrupted.
+  If the suspected vulnerability requires a corrupted sketch, without a way
+  to create such sketches (using the current version), it's not a security
   issue. This is in line with general assumptions in the Postgres code.
 
 * A valid vulnerability must not require superuser privileges. A superuser
@@ -822,3 +828,5 @@ more details.
 
 
 [1] http://www.vldb.org/pvldb/vol12/p2195-masson.pdf
+
+[2] https://github.com/tvondra/ddsketch/security/advisories/new
