@@ -1,0 +1,187 @@
+-- test count overflows when merging sketches
+--
+-- The counts (of each bucket, of the zero bucket, and the total count) are
+-- int64, and merging sketches with large counts may overflow them. That has
+-- to be detected and reported as an error, instead of silently wrapping
+-- around to a negative count, producing an invalid sketch.
+--
+-- Sketches get merged by the ddsketch(ddsketch) aggregate, by ddsketch_union,
+-- and by the combine function (with partial aggregation), so test all of
+-- them. The bucket counts (including the zero bucket) can't exceed the total
+-- count, so checking the total count is enough to detect all overflows, but
+-- test overflows of the individual counts too.
+
+\set VERBOSITY terse
+
+--
+-- aggregate merging sketches
+--
+
+-- the largest counts that do not overflow (positive/negative/zero bucket)
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775806 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775806)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775806 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 9223372036854775806)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775805 alpha 0.050000 zero_count 9223372036854775804 maxbuckets 1024 buckets 1 0 (0, 1)'::ddsketch),
+               ('flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 0 (0, 1)')) t(s);
+
+-- overflow of a positive/negative bucket, and of the zero bucket
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 9223372036854775807)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 9223372036854775806 maxbuckets 1024 buckets 1 0 (0, 1)'::ddsketch),
+               ('flags 0 count 3 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 1 0 (7, 1)')) t(s);
+
+-- overflow of a bucket that is not the first one
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 2 0 (0, 1) (7, 9223372036854775806)'::ddsketch),
+               ('flags 0 count 3 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 2 0 (0, 1) (7, 2)')) t(s);
+
+-- overflow of a bucket, with counts that are not the maximum value
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 4611686018427387904)'::ddsketch),
+               ('flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 4611686018427387904)')) t(s);
+
+-- overflow of a bucket, only after merging multiple sketches
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 3074457345618258603 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 3074457345618258603)'::ddsketch),
+               ('flags 0 count 3074457345618258603 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 3074457345618258603)'),
+               ('flags 0 count 3074457345618258603 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 3074457345618258603)')) t(s);
+
+-- overflow of the total count (new positive/negative bucket, zero bucket)
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (7, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 9223372036854775807)'::ddsketch),
+               ('flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch),
+               ('flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 0 (7, 1)')) t(s);
+
+SELECT ddsketch(s)
+  FROM (VALUES ('flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 4611686018427387904)'::ddsketch),
+               ('flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 4611686018427387904)')) t(s);
+
+--
+-- ddsketch_union
+--
+
+-- the largest counts that do not overflow
+SELECT ddsketch_union('flags 0 count 9223372036854775806 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775806)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775805 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775805)'::ddsketch,
+                      'flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775806 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 9223372036854775806)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775805 alpha 0.050000 zero_count 9223372036854775804 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch,
+                      'flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch);
+
+-- overflow of a positive/negative bucket, and of the zero bucket
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 4611686018427387904)'::ddsketch,
+                      'flags 0 count 4611686018427387904 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 4611686018427387904)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 9223372036854775807)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 9223372036854775806 maxbuckets 1024 buckets 1 0 (0, 1)'::ddsketch,
+                      'flags 0 count 3 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 1 0 (7, 1)'::ddsketch);
+
+-- overflow of the total count (new positive/negative bucket, zero bucket)
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (7, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch,
+                      'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch);
+
+SELECT ddsketch_union('flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch,
+                      'flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 0 (7, 1)'::ddsketch);
+
+--
+-- partial aggregation
+--
+-- The partial aggregate states get merged by the combine function. That
+-- happens in parallel queries, but how the rows get split between the
+-- participants depends on timing (e.g. the leader may process all rows
+-- before the workers start), so use partitionwise aggregation, which builds
+-- a partial aggregate state for each partition. The counts are set so that
+-- the partial states do not overflow on their own, only when merged.
+--
+
+-- 64897 rows with count 142123242012031 add up to exactly 9223372036854775807
+-- (the largest int64 value), so incrementing the counts makes them overflow
+CREATE TABLE merge_overflow_data (i int, v double precision, c bigint)
+  PARTITION BY RANGE (i);
+
+CREATE TABLE merge_overflow_data_1 PARTITION OF merge_overflow_data FOR VALUES FROM (1) TO (16225);
+CREATE TABLE merge_overflow_data_2 PARTITION OF merge_overflow_data FOR VALUES FROM (16225) TO (32449);
+CREATE TABLE merge_overflow_data_3 PARTITION OF merge_overflow_data FOR VALUES FROM (32449) TO (48673);
+CREATE TABLE merge_overflow_data_4 PARTITION OF merge_overflow_data FOR VALUES FROM (48673) TO (64898);
+
+INSERT INTO merge_overflow_data
+SELECT i, (CASE mod(i, 3) WHEN 0 THEN -1.0 WHEN 1 THEN 1.0 ELSE 2.0 END), 142123242012031
+  FROM generate_series(1, 64897) s(i);
+
+ANALYZE merge_overflow_data;
+
+SET max_parallel_workers_per_gather = 0;
+SET enable_partitionwise_aggregate = on;
+
+-- How many partial aggregates does the query plan have? The plans are not
+-- included in the output, because EXPLAIN prints the partitions differently
+-- in some versions.
+CREATE FUNCTION merge_overflow_partial_aggs(p_query text) RETURNS int AS $$
+DECLARE
+    v_line      text;
+    v_count     int := 0;
+BEGIN
+    FOR v_line IN EXECUTE 'EXPLAIN (COSTS OFF) ' || p_query LOOP
+        IF v_line LIKE '%Partial Aggregate%' THEN
+            v_count := v_count + 1;
+        END IF;
+    END LOOP;
+
+    RETURN v_count;
+END;
+$$ LANGUAGE plpgsql;
+
+SELECT merge_overflow_partial_aggs('SELECT ddsketch(v, c, 0.05, 1024) FROM merge_overflow_data');
+
+-- the largest counts that do not overflow (bucket, zero bucket, total count)
+SELECT ddsketch(1.0::double precision, c, 0.05, 1024) FROM merge_overflow_data;
+
+SELECT ddsketch(0.0::double precision, c, 0.05, 1024) FROM merge_overflow_data;
+
+SELECT ddsketch(v, c, 0.05, 1024) FROM merge_overflow_data;
+
+-- overflow of a positive/negative bucket, of the zero bucket, and of the
+-- total count (with values in different buckets)
+SELECT ddsketch(1.0::double precision, c + 1, 0.05, 1024) FROM merge_overflow_data;
+
+SELECT ddsketch(-1.0::double precision, c + 1, 0.05, 1024) FROM merge_overflow_data;
+
+SELECT ddsketch(0.0::double precision, c + 1, 0.05, 1024) FROM merge_overflow_data;
+
+SELECT ddsketch(v, c + 1, 0.05, 1024) FROM merge_overflow_data;
+
+DROP FUNCTION merge_overflow_partial_aggs(text);
+DROP TABLE merge_overflow_data;
