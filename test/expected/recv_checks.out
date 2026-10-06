@@ -1,0 +1,334 @@
+-- tests parsing binary representation of sketches (ddsketch_recv)
+--
+-- The binary input is user supplied, just like the text input, so it has to
+-- be validated in the same way. The receive function has to reject values
+-- with invalid header fields, invalid buckets (non-positive counts, indexes
+-- in incorrect order), bucket counts that overflow or don't add up to the
+-- total count, and values with fewer or more buckets than declared. The
+-- existing tests only load valid sketches (in the copy test).
+--
+-- The values are loaded through a binary COPY, which calls the receive
+-- function. The binary input is built using the send functions of the
+-- individual fields.
+\set VERBOSITY terse
+CREATE TABLE recv_checks_dst (s ddsketch);
+-- header of the binary representation (note the order of fields is not the
+-- same as in the text representation)
+CREATE FUNCTION recv_checks_header(p_flags int, p_count bigint,
+                                   p_zero_count bigint,
+                                   p_alpha double precision,
+                                   p_maxbuckets int, p_nbuckets int,
+                                   p_nbuckets_negative int)
+RETURNS bytea AS $$
+  SELECT int4send(p_flags) || int8send(p_count) || int8send(p_zero_count) ||
+         float8send(p_alpha) || int4send(p_maxbuckets) ||
+         int4send(p_nbuckets) || int4send(p_nbuckets_negative)
+$$ LANGUAGE sql;
+-- a single bucket
+CREATE FUNCTION recv_checks_bucket(p_index int, p_count bigint)
+RETURNS bytea AS $$
+  SELECT int4send(p_index) || int8send(p_count)
+$$ LANGUAGE sql;
+-- a sequence of buckets with indexes from p_from to p_to (ascending or
+-- descending), each with count 1
+CREATE FUNCTION recv_checks_buckets(p_from int, p_to int)
+RETURNS bytea AS $$
+  SELECT string_agg(recv_checks_bucket(i, 1), ''::bytea ORDER BY n)
+    FROM generate_series(p_from, p_to,
+                         CASE WHEN p_from <= p_to THEN 1 ELSE -1 END)
+         WITH ORDINALITY AS s(i, n)
+$$ LANGUAGE sql;
+-- write the binary value into a file, load it back through a binary COPY
+-- (i.e. using the receive function), and return the sketch as text
+CREATE FUNCTION recv_checks_load(p_value bytea)
+RETURNS text AS $$
+DECLARE
+  v_sketch text;
+BEGIN
+  EXECUTE format('COPY (SELECT %L::bytea) TO %L WITH (FORMAT binary)',
+                 p_value, '/tmp/ddsketch_recv_checks.bin');
+
+  DELETE FROM recv_checks_dst;
+  COPY recv_checks_dst FROM '/tmp/ddsketch_recv_checks.bin' WITH (FORMAT binary);
+
+  SELECT s::text INTO v_sketch FROM recv_checks_dst;
+  RETURN v_sketch;
+END;
+$$ LANGUAGE plpgsql;
+--
+-- valid values, to make sure the checks don't reject correct input
+--
+-- negative, zero and positive values
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+                                 recv_checks_load                                  
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+-- only negative / positive values
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.05, 1024, 2, 2) ||
+                        recv_checks_bucket(7, 1) || recv_checks_bucket(0, 1));
+                                 recv_checks_load                                  
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 2 (7, 1) (0, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.05, 1024, 2, 0) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+                                 recv_checks_load                                  
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 0 (0, 1) (7, 1)
+(1 row)
+
+-- the same index in the negative and positive part
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(0, 1));
+                                 recv_checks_load                                  
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 1 (0, 1) (0, 1)
+(1 row)
+
+-- no buckets, all values in the zero bucket
+SELECT recv_checks_load(recv_checks_header(0, 3, 3, 0.05, 1024, 0, 0));
+                          recv_checks_load                           
+---------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 3 maxbuckets 1024 buckets 0 0
+(1 row)
+
+-- boundaries of the allowed ranges
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.0001, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+                                  recv_checks_load                                   
+-------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.0001 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.1, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+                                 recv_checks_load                                 
+----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.1 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 32768, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+                                  recv_checks_load                                  
+------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 32768 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 16, 0, 0.05, 16, 16, 8) ||
+                        recv_checks_buckets(7, 0) || recv_checks_buckets(0, 7));
+                                                                                  recv_checks_load                                                                                   
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ flags 0 count 16 alpha 0.05 zero_count 0 maxbuckets 16 buckets 16 8 (7, 1) (6, 1) (5, 1) (4, 1) (3, 1) (2, 1) (1, 1) (0, 1) (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) (7, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.1, 1024, 2, 0) ||
+                        recv_checks_bucket(-3529, 1) || recv_checks_bucket(3537, 1));
+                                    recv_checks_load                                     
+-----------------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 0 (-3529, 1) (3537, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.1, 1024, 2, 2) ||
+                        recv_checks_bucket(3537, 1) || recv_checks_bucket(-3529, 1));
+                                    recv_checks_load                                     
+-----------------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 2 (3537, 1) (-3529, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 1, 0, 0.05, 1024, 1, 0) ||
+                        recv_checks_bucket(0, 1));
+                              recv_checks_load                              
+----------------------------------------------------------------------------
+ flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 0, 0.05, 1024, 1, 0) ||
+                        recv_checks_bucket(0, 9223372036854775807));
+                                                recv_checks_load                                                
+----------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 9223372036854775806, 0.05, 1024, 1, 1) ||
+                        recv_checks_bucket(0, 1));
+                                                recv_checks_load                                                
+----------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 9223372036854775806 maxbuckets 1024 buckets 1 1 (0, 1)
+(1 row)
+
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 0, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 9223372036854775806) || recv_checks_bucket(7, 1));
+                                                   recv_checks_load                                                    
+-----------------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 1 (0, 9223372036854775806) (7, 1)
+(1 row)
+
+--
+-- sanity checks on the header
+--
+-- unknown flags
+SELECT recv_checks_load(recv_checks_header(1, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  invalid sketch flags 1
+SELECT recv_checks_load(recv_checks_header(-1, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  invalid sketch flags -1
+-- alpha out of the allowed range
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.00005, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (0.000050) must be in [0.000100, 0.100000]
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.11, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (0.110000) must be in [0.000100, 0.100000]
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, -0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (-0.050000) must be in [0.000100, 0.100000]
+-- NaN and infinite alpha have to be rejected too
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 'NaN'::double precision, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (NaN) must be in [0.000100, 0.100000]
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, '-Infinity'::double precision, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (-Infinity) must be in [0.000100, 0.100000]
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 'Infinity'::double precision, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  alpha for ddsketch (Infinity) must be in [0.000100, 0.100000]
+-- maximum number of buckets out of the allowed range
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 15, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of buckets (15) for ddsketch must be in [16, 32768]
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 32769, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of buckets (32769) for ddsketch must be in [16, 32768]
+-- invalid number of buckets
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, -1, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of buckets (-1) for ddsketch must be positive
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, -1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of negative buckets (-1) for ddsketch must not be negative
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 3) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of negative buckets (3) for ddsketch must not exceed nbuckets (2)
+-- more buckets than allowed by maxbuckets (checked before allocating the
+-- sketch, so a bogus number of buckets does not cause a huge allocation)
+SELECT recv_checks_load(recv_checks_header(0, 17, 0, 0.05, 16, 17, 0) ||
+                        recv_checks_buckets(0, 16));
+ERROR:  number of buckets (17) for ddsketch must not exceed maxbuckets (16)
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2147483647, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  number of buckets (2147483647) for ddsketch must not exceed maxbuckets (1024)
+-- invalid total count and zero count
+SELECT recv_checks_load(recv_checks_header(0, 0, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  count value for the ddsketch must be positive
+SELECT recv_checks_load(recv_checks_header(0, -1, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  count value for the ddsketch must be positive
+SELECT recv_checks_load(recv_checks_header(0, 3, -1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  zero_count value for the ddsketch must be positive
+SELECT recv_checks_load(recv_checks_header(0, 3, 4, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  zero_count value for the ddsketch must not exceed count
+--
+-- sanity checks on the buckets
+--
+-- non-positive bucket counts
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 0) || recv_checks_bucket(7, 1));
+ERROR:  count value for all buckets in a ddsketch must be positive
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, -1));
+ERROR:  count value for all buckets in a ddsketch must be positive
+-- bucket indexes outside the indexable range for the alpha
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.1, 1024, 2, 0) ||
+                        recv_checks_bucket(-3530, 1) || recv_checks_bucket(3537, 1));
+ERROR:  bucket index -3530 is outside ddsketch indexable range [-3529, 3537]
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.1, 1024, 2, 0) ||
+                        recv_checks_bucket(-3529, 1) || recv_checks_bucket(3538, 1));
+ERROR:  bucket index 3538 is outside ddsketch indexable range [-3529, 3537]
+SELECT recv_checks_load(recv_checks_header(0, 2, 0, 0.1, 1024, 2, 1) ||
+                        recv_checks_bucket(3538, 1) || recv_checks_bucket(3537, 1));
+ERROR:  bucket index 3538 is outside ddsketch indexable range [-3529, 3537]
+-- bucket count exceeding the total count
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 5));
+ERROR:  count value of a bucket exceeds total count
+-- negative buckets have to be sorted by index in descending order
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 2) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  negative buckets in incorrect order
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 2) ||
+                        recv_checks_bucket(7, 1) || recv_checks_bucket(7, 1));
+ERROR:  negative buckets in incorrect order
+-- positive buckets have to be sorted by index in ascending order
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 0) ||
+                        recv_checks_bucket(7, 1) || recv_checks_bucket(0, 1));
+ERROR:  positive buckets in incorrect order
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 0) ||
+                        recv_checks_bucket(7, 1) || recv_checks_bucket(7, 1));
+ERROR:  positive buckets in incorrect order
+-- the sum of bucket counts (and the zero bucket) must not overflow, even if
+-- it'd wrap around to match the total count
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 1, 0.05, 1024, 1, 0) ||
+                        recv_checks_bucket(0, 9223372036854775807));
+ERROR:  ddsketch count overflow
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 0, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 9223372036854775807) || recv_checks_bucket(7, 1));
+ERROR:  ddsketch count overflow
+SELECT recv_checks_load(recv_checks_header(0, 9223372036854775807, 0, 0.05, 1024, 4, 0) ||
+                        recv_checks_bucket(0, 9223372036854775807) ||
+                        recv_checks_bucket(7, 9223372036854775807) ||
+                        recv_checks_bucket(14, 9223372036854775807) ||
+                        recv_checks_bucket(21, 2));
+ERROR:  ddsketch count overflow
+-- bucket counts (and the zero bucket) not adding up to the total count
+SELECT recv_checks_load(recv_checks_header(0, 2, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  total count does not match the data (3 != 2)
+SELECT recv_checks_load(recv_checks_header(0, 4, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  total count does not match the data (3 != 4)
+SELECT recv_checks_load(recv_checks_header(0, 3, 2, 0.05, 1024, 0, 0));
+ERROR:  total count does not match the data (2 != 3)
+--
+-- values with less or more data than declared in the header
+--
+-- empty value, and a truncated header
+SELECT recv_checks_load(''::bytea);
+ERROR:  insufficient data left in message
+SELECT recv_checks_load(int4send(0) || int8send(3::bigint));
+ERROR:  insufficient data left in message
+-- fewer buckets than declared (none, one, and one and a half)
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1));
+ERROR:  insufficient data left in message
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1));
+ERROR:  insufficient data left in message
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || int4send(7));
+ERROR:  insufficient data left in message
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 32768, 32768, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  insufficient data left in message
+-- more buckets than declared, and other trailing data
+SELECT recv_checks_load(recv_checks_header(0, 2, 1, 0.05, 1024, 1, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1));
+ERROR:  incorrect binary data format
+SELECT recv_checks_load(recv_checks_header(0, 2, 2, 0.05, 1024, 0, 0) ||
+                        recv_checks_bucket(7, 1));
+ERROR:  incorrect binary data format
+SELECT recv_checks_load(recv_checks_header(0, 3, 1, 0.05, 1024, 2, 1) ||
+                        recv_checks_bucket(0, 1) || recv_checks_bucket(7, 1) ||
+                        '\x00'::bytea);
+ERROR:  incorrect binary data format
+DROP FUNCTION recv_checks_load(bytea);
+DROP FUNCTION recv_checks_buckets(int, int);
+DROP FUNCTION recv_checks_bucket(int, bigint);
+DROP FUNCTION recv_checks_header(int, bigint, bigint, double precision, int, int, int);
+DROP TABLE recv_checks_dst;
