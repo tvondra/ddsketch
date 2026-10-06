@@ -1,0 +1,327 @@
+-- test NULL handling in incremental API (ddsketch_add)
+--
+-- The functions behind all variants of ddsketch_add are not strict, so NULL
+-- arguments do reach them. Adding a NULL value (or a NULL array of values)
+-- is a no-op, returning the sketch passed in (NULL if the sketch is NULL
+-- too). The alpha and the number of buckets are needed only to create a new
+-- sketch, i.e. when the sketch passed in is NULL, and then they must not be
+-- NULL. When adding values to an existing sketch, they may be NULL (the
+-- parameters of the sketch are used).
+--
+-- ddsketch_add(sketch, value, alpha, max_buckets)
+--
+-- Adding a single value, implemented by ddsketch_add_double_increment.
+-- NULL value, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, 0.05, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, NULL::double precision, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, 0.05, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, NULL::double precision, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+-- NULL value, existing sketch (with negative, zero and positive values)
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision, 0.05, 1024);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision, NULL::double precision, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+-- NULL alpha or number of buckets, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, NULL::double precision, 1024);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 0.05, NULL::int);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, NULL::double precision, NULL::int);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+-- the number of buckets defaults to NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 0.05);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+-- NULL alpha or number of buckets, existing sketch (alpha 0.01, 100 buckets)
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::double precision, 100);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 0.01, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::double precision, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 0.01);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+-- the result is the same as when building the sketch using the aggregate
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::double precision, NULL::int)::text =
+       (SELECT ddsketch(v, 0.01, 100) FROM (VALUES (1.0::double precision), (2.0)) AS t(v))::text AS match;
+ match 
+-------
+ t
+(1 row)
+
+--
+-- ddsketch_add(sketch, value, count, alpha, max_buckets)
+--
+-- Adding a value with a count, implemented by
+-- ddsketch_add_double_count_increment. Adding a NULL value is a no-op no
+-- matter what the count is, and a NULL count means the value is added once.
+-- NULL value (with and without a count), NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, 10::bigint, 0.05, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, NULL::bigint, 0.05, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, 10::bigint, NULL::double precision, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision, NULL::bigint, NULL::double precision, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+-- NULL value (with and without a count), existing sketch (with negative,
+-- zero and positive values)
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision, 10::bigint, 0.05, 1024);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision, NULL::bigint, 0.05, 1024);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision, NULL::bigint, NULL::double precision, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+-- NULL count (the value is added once), NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, NULL::bigint, 0.05, 1024);
+                                ddsketch_add                                
+----------------------------------------------------------------------------
+ flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 1)
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, -1.0::double precision, NULL::bigint, 0.05, 1024);
+                                ddsketch_add                                
+----------------------------------------------------------------------------
+ flags 0 count 1 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 1 1 (0, 1)
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, 0.0::double precision, NULL::bigint, 0.05, 1024);
+                            ddsketch_add                             
+---------------------------------------------------------------------
+ flags 0 count 1 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 0 0
+(1 row)
+
+-- NULL count (the value is added once), existing sketch
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::bigint, 0.01, 100);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+-- NULL alpha or number of buckets, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 10::bigint, NULL::double precision, 1024);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 10::bigint, 0.05, NULL::int);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 10::bigint, NULL::double precision, NULL::int);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, NULL::bigint, NULL::double precision, NULL::int);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+-- the number of buckets defaults to NULL
+SELECT ddsketch_add(NULL::ddsketch, 1.0::double precision, 10::bigint, 0.05);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+-- NULL alpha or number of buckets, existing sketch (alpha 0.01, 100 buckets)
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 10::bigint, NULL::double precision, 100);
+                                    ddsketch_add                                     
+-------------------------------------------------------------------------------------
+ flags 0 count 11 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 10)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 10::bigint, 0.01, NULL::int);
+                                    ddsketch_add                                     
+-------------------------------------------------------------------------------------
+ flags 0 count 11 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 10)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 10::bigint, NULL::double precision, NULL::int);
+                                    ddsketch_add                                     
+-------------------------------------------------------------------------------------
+ flags 0 count 11 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 10)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 10::bigint, 0.01);
+                                    ddsketch_add                                     
+-------------------------------------------------------------------------------------
+ flags 0 count 11 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 10)
+(1 row)
+
+-- everything except the sketch and the value is NULL
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::bigint, NULL::double precision, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.01 zero_count 0 maxbuckets 100 buckets 2 0 (0, 1) (35, 1)
+(1 row)
+
+-- the results are the same as when building the sketch using the aggregate
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, 10::bigint, NULL::double precision, NULL::int)::text =
+       (SELECT ddsketch(v, c, 0.01, 100) FROM (VALUES (1.0::double precision, 1::bigint), (2.0, 10)) AS t(v, c))::text AS match;
+ match 
+-------
+ t
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, 2.0::double precision, NULL::bigint, NULL::double precision, NULL::int)::text =
+       (SELECT ddsketch(v, c, 0.01, 100) FROM (VALUES (1.0::double precision, 1::bigint), (2.0, NULL)) AS t(v, c))::text AS match;
+ match 
+-------
+ t
+(1 row)
+
+--
+-- ddsketch_add(sketch, values, alpha, max_buckets)
+--
+-- Adding an array of values, implemented by
+-- ddsketch_add_double_array_increment. NULL elements in the array are
+-- rejected, though.
+-- NULL array, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision[], 0.05, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision[], NULL::double precision, 1024);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision[], 0.05, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+SELECT ddsketch_add(NULL::ddsketch, NULL::double precision[], NULL::double precision, NULL::int);
+ ddsketch_add 
+--------------
+ 
+(1 row)
+
+-- NULL array, existing sketch (with negative, zero and positive values)
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision[], 0.05, 1024);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch, NULL::double precision[], NULL::double precision, NULL::int);
+                                   ddsketch_add                                    
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+-- NULL alpha or number of buckets, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 2.0]::double precision[], NULL::double precision, 1024);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 2.0]::double precision[], 0.05, NULL::int);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 2.0]::double precision[], NULL::double precision, NULL::int);
+ERROR:  alpha value not supplied, but ddsketch is NULL
+-- the number of buckets defaults to NULL
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, 2.0]::double precision[], 0.05);
+ERROR:  nbuckets value not supplied, but ddsketch is NULL
+-- NULL alpha or number of buckets, existing sketch (alpha 0.01, 100 buckets)
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, 4.0]::double precision[], NULL::double precision, 100);
+                                       ddsketch_add                                        
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.01 zero_count 0 maxbuckets 100 buckets 3 0 (0, 1) (35, 1) (70, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, 4.0]::double precision[], 0.01, NULL::int);
+                                       ddsketch_add                                        
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.01 zero_count 0 maxbuckets 100 buckets 3 0 (0, 1) (35, 1) (70, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, 4.0]::double precision[], NULL::double precision, NULL::int);
+                                       ddsketch_add                                        
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.01 zero_count 0 maxbuckets 100 buckets 3 0 (0, 1) (35, 1) (70, 1)
+(1 row)
+
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, 4.0]::double precision[], 0.01);
+                                       ddsketch_add                                        
+-------------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.01 zero_count 0 maxbuckets 100 buckets 3 0 (0, 1) (35, 1) (70, 1)
+(1 row)
+
+-- the result is the same as when building the sketch using the aggregate
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, 4.0]::double precision[], NULL::double precision, NULL::int)::text =
+       (SELECT ddsketch(v, 0.01, 100) FROM (VALUES (1.0::double precision), (2.0), (4.0)) AS t(v))::text AS match;
+ match 
+-------
+ t
+(1 row)
+
+-- NULL elements are not allowed, NULL sketch
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[NULL]::double precision[], 0.05, 1024);
+ERROR:  NULL not allowed as an element
+SELECT ddsketch_add(NULL::ddsketch, ARRAY[1.0, NULL, 2.0]::double precision[], 0.05, 1024);
+ERROR:  NULL not allowed as an element
+-- NULL elements are not allowed, existing sketch
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[NULL]::double precision[], 0.01, 100);
+ERROR:  NULL not allowed as an element
+SELECT ddsketch_add('flags 0 count 1 alpha 0.010000 zero_count 0 maxbuckets 100 buckets 1 0 (0, 1)'::ddsketch, ARRAY[2.0, NULL]::double precision[], NULL::double precision, NULL::int);
+ERROR:  NULL not allowed as an element
