@@ -1,0 +1,238 @@
+-- test parsing the text representation of sketches (ddsketch_in)
+--
+-- The input function has to reject malformed values - missing or unexpected
+-- parts, fields that fail to parse or are out of range for their data type,
+-- a list of buckets that does not match the header, and bucket counts that
+-- would overflow. And it has to accept valid values, including values at the
+-- boundaries of the allowed ranges.
+--
+-- don't print the (long) input values for each error
+\set VERBOSITY terse
+-- a valid sketch (with negative, zero and positive values)
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+                                     ddsketch                                      
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+-- missing or misspelled keywords
+SELECT ''::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "flags" at character 8
+SELECT 'flag 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "flags" at character 8
+SELECT 'flags 0 cnt 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "count" at character 8
+SELECT 'flags 0 count 3 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "alpha" at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "zero_count" at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 max_buckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "maxbuckets" at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 bucket 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "buckets" at character 8
+-- missing and unexpected spaces
+SELECT ' flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, unexpected space at character 8
+SELECT 'flags 0count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, missing space at character 8
+SELECT 'flags 0  count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, unexpected space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1(0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, missing space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1)(7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, missing space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1)  (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, unexpected space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0 , 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, unexpected space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1 ) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, unexpected space at character 8
+-- malformed buckets
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 [0, 1] (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected "(" at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0; 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected ", " at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1] (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected ")" at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected ")" at character 8
+-- truncated values
+SELECT 'flags 0 count 3'::ddsketch;
+ERROR:  failed to parse ddsketch value, missing space at character 8
+SELECT 'flags 0 count 3 alpha'::ddsketch;
+ERROR:  failed to parse alpha of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2'::ddsketch;
+ERROR:  failed to parse negative buckets of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7,'::ddsketch;
+ERROR:  failed to parse ddsketch value, expected ", " at character 8
+-- trailing characters
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1) '::ddsketch;
+ERROR:  input ddsketch value too long at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)x'::ddsketch;
+ERROR:  input ddsketch value too long at character 8
+-- fields that fail to parse
+SELECT 'flags x count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse flags of a ddsketch at character 8
+SELECT 'flags 0 count x alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse count of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha x zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse alpha of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count x maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse zero_count of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets x buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse maxbuckets of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets x 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse buckets of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 x (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse negative buckets of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (x, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse index of a ddsketch at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, x) (7, 1)'::ddsketch;
+ERROR:  failed to parse bucket count of a ddsketch at character 8
+-- fields out of range for their data type
+SELECT 'flags 2147483648 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  flags of a ddsketch is out of range for integer at character 8
+SELECT 'flags 0 count 9223372036854775808 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  count of a ddsketch is out of range for bigint at character 8
+SELECT 'flags 0 count -9223372036854775809 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  count of a ddsketch is out of range for bigint at character 8
+SELECT 'flags 0 count 3 alpha 1e999 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  alpha of a ddsketch is out of range for double precision at character 8
+SELECT 'flags 0 count 3 alpha 1e-999 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  alpha of a ddsketch is out of range for double precision at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 9223372036854775808 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  zero_count of a ddsketch is out of range for bigint at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 2147483648 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  maxbuckets of a ddsketch is out of range for integer at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2147483648 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  buckets of a ddsketch is out of range for integer at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 -2147483649 (0, 1) (7, 1)'::ddsketch;
+ERROR:  negative buckets of a ddsketch is out of range for integer at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (2147483648, 1) (7, 1)'::ddsketch;
+ERROR:  index of a ddsketch is out of range for integer at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 9223372036854775808) (7, 1)'::ddsketch;
+ERROR:  bucket count of a ddsketch is out of range for bigint at character 8
+-- negative flags and total count
+SELECT 'flags -1 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  invalid sketch flags -1 at character 8
+SELECT 'flags 0 count -1 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  count value for the ddsketch must be positive at character 8
+-- bucket indexes just outside the indexable range for the alpha
+SELECT 'flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 0 (-3530, 1) (3537, 1)'::ddsketch;
+ERROR:  bucket index -3530 is outside ddsketch indexable range [-3529, 3537] at character 8
+SELECT 'flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 0 (-3529, 1) (3538, 1)'::ddsketch;
+ERROR:  bucket index 3538 is outside ddsketch indexable range [-3529, 3537] at character 8
+-- a subnormal alpha (positive or negative) is parsed fine, but it's out of
+-- the allowed range
+SELECT 'flags 0 count 3 alpha 1e-310 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  alpha for ddsketch (0.000000) must be in [0.000100, 0.100000] at character 8
+SELECT 'flags 0 count 3 alpha -1e-310 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  alpha for ddsketch (-0.000000) must be in [0.000100, 0.100000] at character 8
+-- fewer or more buckets than declared in the header
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 3 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  failed to parse ddsketch value, missing space at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  input ddsketch value too long at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 0 0 (7, 1)'::ddsketch;
+ERROR:  input ddsketch value too long at character 8
+-- the number of negative buckets determines which buckets are negative, and
+-- the indexes have to be descending in the negative part and ascending in
+-- the positive part
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 0 (0, 1) (7, 1)'::ddsketch;
+                                     ddsketch                                      
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 0 (0, 1) (7, 1)
+(1 row)
+
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 2 (7, 1) (0, 1)'::ddsketch;
+                                     ddsketch                                      
+-----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 1024 buckets 2 2 (7, 1) (0, 1)
+(1 row)
+
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 0 (7, 1) (0, 1)'::ddsketch;
+ERROR:  invalid sketch - descending indexes in the positive part at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 2 (0, 1) (7, 1)'::ddsketch;
+ERROR:  invalid sketch - ascending indexes in the negative part at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 0 (0, 1) (0, 1)'::ddsketch;
+ERROR:  invalid sketch - descending indexes in the positive part at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 2 (0, 1) (0, 1)'::ddsketch;
+ERROR:  invalid sketch - ascending indexes in the negative part at character 8
+-- total count has to match the zero bucket and the buckets
+SELECT 'flags 0 count 2 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  total count (2) does not match buckets (3) at character 8
+SELECT 'flags 0 count 4 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+ERROR:  total count (4) does not match buckets (3) at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 2 1 (0, -1) (7, 1)'::ddsketch;
+ERROR:  count value for all indexes in a ddsketch must be positive at character 8
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 2 maxbuckets 1024 buckets 0 0'::ddsketch;
+ERROR:  total count (3) does not match buckets (2) at character 8
+-- the sum of bucket counts (and the zero bucket) must not overflow, even if
+-- it'd wrap around to match the total count
+SELECT 'flags 0 count 9223372036854775807 alpha 0.050000 zero_count 1 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch;
+ERROR:  ddsketch count overflow at character 8
+SELECT 'flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 2 1 (0, 9223372036854775807) (7, 1)'::ddsketch;
+ERROR:  ddsketch count overflow at character 8
+SELECT 'flags 0 count 1 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 3 0 (0, 9223372036854775807) (7, 9223372036854775807) (14, 3)'::ddsketch;
+ERROR:  ddsketch count overflow at character 8
+-- valid values at the boundaries of the allowed ranges
+SELECT 'flags 0 count 3 alpha 0.0001 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+                                      ddsketch                                       
+-------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.0001 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT 'flags 0 count 3 alpha 0.1 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+                                     ddsketch                                     
+----------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.1 zero_count 1 maxbuckets 1024 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 1 maxbuckets 32768 buckets 2 1 (0, 1) (7, 1)'::ddsketch;
+                                      ddsketch                                      
+------------------------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 1 maxbuckets 32768 buckets 2 1 (0, 1) (7, 1)
+(1 row)
+
+SELECT 'flags 0 count 16 alpha 0.050000 zero_count 0 maxbuckets 16 buckets 16 8 (7, 1) (6, 1) (5, 1) (4, 1) (3, 1) (2, 1) (1, 1) (0, 1) (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) (7, 1)'::ddsketch;
+                                                                                      ddsketch                                                                                       
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ flags 0 count 16 alpha 0.05 zero_count 0 maxbuckets 16 buckets 16 8 (7, 1) (6, 1) (5, 1) (4, 1) (3, 1) (2, 1) (1, 1) (0, 1) (0, 1) (1, 1) (2, 1) (3, 1) (4, 1) (5, 1) (6, 1) (7, 1)
+(1 row)
+
+SELECT 'flags 0 count 3 alpha 0.050000 zero_count 3 maxbuckets 1024 buckets 0 0'::ddsketch;
+                              ddsketch                               
+---------------------------------------------------------------------
+ flags 0 count 3 alpha 0.05 zero_count 3 maxbuckets 1024 buckets 0 0
+(1 row)
+
+SELECT 'flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 0 (-3529, 1) (3537, 1)'::ddsketch;
+                                        ddsketch                                         
+-----------------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 0 (-3529, 1) (3537, 1)
+(1 row)
+
+SELECT 'flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 2 (3537, 1) (-3529, 1)'::ddsketch;
+                                        ddsketch                                         
+-----------------------------------------------------------------------------------------
+ flags 0 count 2 alpha 0.1 zero_count 0 maxbuckets 1024 buckets 2 2 (3537, 1) (-3529, 1)
+(1 row)
+
+SELECT 'flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)'::ddsketch;
+                                                    ddsketch                                                    
+----------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 1 0 (0, 9223372036854775807)
+(1 row)
+
+SELECT 'flags 0 count 9223372036854775807 alpha 0.050000 zero_count 9223372036854775806 maxbuckets 1024 buckets 1 1 (0, 1)'::ddsketch;
+                                                    ddsketch                                                    
+----------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 9223372036854775806 maxbuckets 1024 buckets 1 1 (0, 1)
+(1 row)
+
+SELECT 'flags 0 count 9223372036854775807 alpha 0.050000 zero_count 0 maxbuckets 1024 buckets 2 1 (0, 9223372036854775806) (7, 1)'::ddsketch;
+                                                       ddsketch                                                        
+-----------------------------------------------------------------------------------------------------------------------
+ flags 0 count 9223372036854775807 alpha 0.05 zero_count 0 maxbuckets 1024 buckets 2 1 (0, 9223372036854775806) (7, 1)
+(1 row)
+
