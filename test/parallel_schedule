@@ -1,3 +1,5 @@
 test: _init
-test: basic copy hypothetical_aggs nulls  parallel_query percentiles summary trimmed_aggs value_count arrays nonfinite input count_overflow buckets capacity incremental
+test: basic arrays nonfinite input count_overflow buckets capacity incremental
+test: percentiles trimmed_aggs copy parallel_query summary value_count
+test: hypothetical_aggs nulls
 test: combine random union
