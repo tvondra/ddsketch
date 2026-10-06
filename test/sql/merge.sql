@@ -1,0 +1,248 @@
+-- Tests merging sketches in ddsketch(ddsketch) aggregate, ddsketch_union,
+-- and when combining partial aggregates.
+--
+-- The tests check merges exceeding the maximum number of buckets, merges
+-- that need to enlarge the array of buckets in the aggregate state, and
+-- merges of sketches with different alpha values.
+
+--
+-- merges exceeding the maximum number of buckets
+--
+
+-- When merging a sketch into an aggregate state, the ddsketch_merge_buckets
+-- function combines buckets with the same index, and then checks that the
+-- result fits into the maximum number of buckets. The positive and negative
+-- parts of the sketch are merged separately, but the limit applies to the
+-- total number of buckets, so the check has to consider the buckets in the
+-- other part too.
+--
+-- The sketches are built from powers of 2 (positive or negative), which are
+-- mapped to distinct buckets.
+
+CREATE TABLE merge_maxbuckets (id int, s ddsketch);
+
+INSERT INTO merge_maxbuckets
+     -- 10 positive buckets
+     SELECT 1, ddsketch(power(2, i), 0.05, 16) FROM generate_series(1, 10) s(i)
+     -- 10 positive buckets, all different from sketch 1
+     UNION ALL SELECT 2, ddsketch(power(2, i), 0.05, 16) FROM generate_series(11, 20) s(i)
+     -- 10 positive buckets, 6 of them shared with sketch 1
+     UNION ALL SELECT 3, ddsketch(power(2, i), 0.05, 16) FROM generate_series(5, 14) s(i)
+     -- 10 negative buckets
+     UNION ALL SELECT 4, ddsketch(-power(2, i), 0.05, 16) FROM generate_series(1, 10) s(i)
+     -- 10 negative buckets, all different from sketch 4
+     UNION ALL SELECT 5, ddsketch(-power(2, i), 0.05, 16) FROM generate_series(11, 20) s(i)
+     -- 6 negative buckets
+     UNION ALL SELECT 6, ddsketch(-power(2, i), 0.05, 16) FROM generate_series(1, 6) s(i)
+     -- 7 negative buckets
+     UNION ALL SELECT 7, ddsketch(-power(2, i), 0.05, 16) FROM generate_series(1, 7) s(i);
+
+SELECT id, i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM merge_maxbuckets, ddsketch_info(s) i ORDER BY id;
+
+-- ddsketch(ddsketch) aggregate
+
+-- positive buckets (10 + 10 different buckets)
+SELECT ddsketch(s ORDER BY id) FROM merge_maxbuckets WHERE id IN (1, 2);
+
+-- negative buckets (10 + 10 different buckets)
+SELECT ddsketch(s ORDER BY id) FROM merge_maxbuckets WHERE id IN (4, 5);
+
+-- negative buckets merged into a state with positive buckets (10 + 7)
+SELECT ddsketch(s ORDER BY id) FROM merge_maxbuckets WHERE id IN (1, 7);
+
+-- positive buckets merged into a state with negative buckets (7 + 10)
+SELECT ddsketch(s ORDER BY id DESC) FROM merge_maxbuckets WHERE id IN (1, 7);
+
+-- the merged sketch can use up to maxbuckets buckets, so these work
+
+-- shared buckets get combined before the check (10 + 10 buckets, 14 in total)
+SELECT i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_maxbuckets WHERE id IN (1, 3)) foo,
+       ddsketch_info(s) i;
+
+-- exactly maxbuckets buckets (10 positive + 6 negative), in both orders
+SELECT i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_maxbuckets WHERE id IN (1, 6)) foo,
+       ddsketch_info(s) i;
+
+SELECT i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM (SELECT ddsketch(s ORDER BY id DESC) AS s FROM merge_maxbuckets WHERE id IN (1, 6)) foo,
+       ddsketch_info(s) i;
+
+-- the merged sketches match sketches built from all the values directly
+SELECT (SELECT ddsketch(s ORDER BY id) FROM merge_maxbuckets WHERE id IN (1, 3))::text
+     = (SELECT ddsketch(v, 0.05, 16) FROM (SELECT power(2, i) FROM generate_series(1, 10) s(i)
+                                           UNION ALL
+                                           SELECT power(2, i) FROM generate_series(5, 14) s(i)) foo(v))::text AS match;
+
+SELECT (SELECT ddsketch(s ORDER BY id) FROM merge_maxbuckets WHERE id IN (1, 6))::text
+     = (SELECT ddsketch(v, 0.05, 16) FROM (SELECT power(2, i) FROM generate_series(1, 10) s(i)
+                                           UNION ALL
+                                           SELECT -power(2, i) FROM generate_series(1, 6) s(i)) foo(v))::text AS match;
+
+-- ddsketch_union
+
+-- positive buckets (10 + 10 different buckets)
+SELECT ddsketch_union(a.s, b.s) FROM merge_maxbuckets a, merge_maxbuckets b WHERE a.id = 1 AND b.id = 2;
+
+-- negative buckets merged into a sketch with positive buckets (10 + 7)
+SELECT ddsketch_union(a.s, b.s) FROM merge_maxbuckets a, merge_maxbuckets b WHERE a.id = 1 AND b.id = 7;
+
+-- shared buckets get combined before the check (10 + 10 buckets, 14 in total)
+SELECT i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM (SELECT ddsketch_union(a.s, b.s) AS s FROM merge_maxbuckets a, merge_maxbuckets b WHERE a.id = 1 AND b.id = 3) foo,
+       ddsketch_info(s) i;
+
+-- exactly maxbuckets buckets (10 positive + 6 negative)
+SELECT i.count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM (SELECT ddsketch_union(a.s, b.s) AS s FROM merge_maxbuckets a, merge_maxbuckets b WHERE a.id = 1 AND b.id = 6) foo,
+       ddsketch_info(s) i;
+
+DROP TABLE merge_maxbuckets;
+
+--
+-- growing the array of buckets
+--
+
+-- If the merged sketch needs more buckets than currently allocated in the
+-- aggregate state, ddsketch_merge_buckets enlarges the array (doubling the
+-- size, but capped by maxbuckets). The aggregate state starts with a single
+-- allocated bucket when the first merged sketch has at most one bucket, so
+-- start with such a sketch and then merge sketches with more buckets. This
+-- is done both in the ddsketch(ddsketch) aggregate and in ddsketch_union.
+-- The merged sketches have to match sketches built directly from all the
+-- values.
+--
+-- The values are mostly powers of 2 (positive or negative), which are mapped
+-- to distinct buckets.
+
+CREATE TABLE merge_grow_values (id int, maxbuckets int, v double precision);
+
+-- a single positive bucket
+INSERT INTO merge_grow_values VALUES (1, 1024, 1.0);
+
+-- 100 positive buckets
+INSERT INTO merge_grow_values SELECT 2, 1024, power(2, i) FROM generate_series(1, 100) s(i);
+
+-- 100 negative buckets
+INSERT INTO merge_grow_values SELECT 3, 1024, -power(2, i) FROM generate_series(1, 100) s(i);
+
+-- no buckets, just the zero bucket
+INSERT INTO merge_grow_values VALUES (4, 1024, 0.0);
+
+-- sketches with 2, 4, 8, ..., 128 buckets (half of them negative)
+INSERT INTO merge_grow_values
+SELECT 10 + k, 1024, sign * power(2, i)
+  FROM generate_series(1, 7) s(k),
+       generate_series(power(2, k - 1)::int, power(2, k)::int - 1) r(i),
+       (VALUES (1), (-1)) x(sign);
+
+-- a single bucket, and 99 more buckets, with maxbuckets not a power of 2
+INSERT INTO merge_grow_values VALUES (20, 100, 1.0);
+INSERT INTO merge_grow_values SELECT 21, 100, power(2, i) FROM generate_series(1, 99) s(i);
+
+CREATE TABLE merge_grow (id int, s ddsketch);
+
+INSERT INTO merge_grow
+SELECT id, ddsketch(v, 0.05, maxbuckets) FROM merge_grow_values GROUP BY id, maxbuckets;
+
+SELECT id, i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets
+  FROM merge_grow, ddsketch_info(s) i ORDER BY id;
+
+-- ddsketch(ddsketch) aggregate
+
+-- positive buckets merged into a state with a single bucket
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id IN (1, 2))::text AS match
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_grow WHERE id IN (1, 2)) m,
+       ddsketch_info(m.s) i;
+
+-- negative buckets merged into a state with a single (positive) bucket
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id IN (1, 3))::text AS match
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_grow WHERE id IN (1, 3)) m,
+       ddsketch_info(m.s) i;
+
+-- positive and negative buckets merged into a state with no buckets
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id IN (2, 3, 4))::text AS match
+  FROM (SELECT ddsketch(s ORDER BY id DESC) AS s FROM merge_grow WHERE id IN (2, 3, 4)) m,
+       ddsketch_info(m.s) i;
+
+-- many merges, each of them enlarging the array of buckets
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id = 1 OR id BETWEEN 11 AND 17)::text AS match
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_grow WHERE id = 1 OR id BETWEEN 11 AND 17) m,
+       ddsketch_info(m.s) i;
+
+-- the enlarged array must not exceed maxbuckets (not a power of 2)
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 100) FROM merge_grow_values WHERE id IN (20, 21))::text AS match
+  FROM (SELECT ddsketch(s ORDER BY id) AS s FROM merge_grow WHERE id IN (20, 21)) m,
+       ddsketch_info(m.s) i;
+
+-- ddsketch_union
+
+-- positive buckets merged into a sketch with a single bucket
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id IN (1, 2))::text AS match
+  FROM (SELECT ddsketch_union(a.s, b.s) AS s FROM merge_grow a, merge_grow b WHERE a.id = 1 AND b.id = 2) m,
+       ddsketch_info(m.s) i;
+
+-- negative buckets merged into a sketch with a single (positive) bucket
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 1024) FROM merge_grow_values WHERE id IN (1, 3))::text AS match
+  FROM (SELECT ddsketch_union(a.s, b.s) AS s FROM merge_grow a, merge_grow b WHERE a.id = 1 AND b.id = 3) m,
+       ddsketch_info(m.s) i;
+
+-- the enlarged array must not exceed maxbuckets (not a power of 2)
+SELECT i.count, i.zero_count, i.max_buckets, i.negative_buckets, i.positive_buckets,
+       m.s::text = (SELECT ddsketch(v, 0.05, 100) FROM merge_grow_values WHERE id IN (20, 21))::text AS match
+  FROM (SELECT ddsketch_union(a.s, b.s) AS s FROM merge_grow a, merge_grow b WHERE a.id = 20 AND b.id = 21) m,
+       ddsketch_info(m.s) i;
+
+DROP TABLE merge_grow;
+DROP TABLE merge_grow_values;
+
+--
+-- merging sketches with different alpha values
+--
+
+-- Sketches with different alpha values can't be merged, which is checked in
+-- the ddsketch(ddsketch) aggregate, in ddsketch_union and when combining
+-- partial aggregates. The existing tests merge a sketch with a higher alpha
+-- into a sketch (or aggregate state) with a lower one, so this checks the
+-- opposite order - the merge has to fail either way.
+
+-- partitionwise aggregation exercises the combine function without workers
+SET enable_partitionwise_aggregate = on;
+SET max_parallel_workers_per_gather = 0;
+
+CREATE TABLE merge_alpha (id int, s ddsketch) PARTITION BY LIST (id);
+CREATE TABLE merge_alpha_a PARTITION OF merge_alpha FOR VALUES IN (1);
+CREATE TABLE merge_alpha_b PARTITION OF merge_alpha FOR VALUES IN (2);
+
+-- the sketch with the higher alpha in the first partition (and NULL sketches
+-- in both, so that the planner picks partitionwise aggregation)
+INSERT INTO merge_alpha VALUES
+  (1, ddsketch_add(NULL::ddsketch, 1.0, 0.05, 16)),
+  (2, ddsketch_add(NULL::ddsketch, 1.0, 0.01, 16));
+INSERT INTO merge_alpha SELECT 1 + i % 2, NULL FROM generate_series(1, 100) s(i);
+ANALYZE merge_alpha;
+
+-- ddsketch(ddsketch) aggregate
+SELECT ddsketch(s ORDER BY id) FROM merge_alpha;
+
+-- ddsketch_union
+SELECT ddsketch_union(a.s, b.s)
+  FROM merge_alpha a, merge_alpha b
+ WHERE a.id = 1 AND a.s IS NOT NULL AND b.id = 2 AND b.s IS NOT NULL;
+
+-- combining partial aggregates
+EXPLAIN (COSTS OFF) SELECT ddsketch(s) FROM merge_alpha;
+SELECT ddsketch(s) FROM merge_alpha;
+
+DROP TABLE merge_alpha;
+RESET enable_partitionwise_aggregate;
+RESET max_parallel_workers_per_gather;
